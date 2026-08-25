@@ -4,14 +4,14 @@
 
 Deliver a polished, complete native iOS game that implements the full approved rules and provides a fully featured experience in every owner-approved play mode.
 
-## Current foundation
+## Product foundation
 
-- Local pass-and-play on one iPhone or iPad is the first implemented mode, not a ceiling on the complete product.
-- A game supports 3–9 named players.
-- The app implements the base 94-card deck: number cards, score modifiers, Freeze, Flip Three, and Second Chance.
-- The app owns dealing, legal choices, action targeting, scoring, round transitions, and victory detection.
-- The interface is original and does not reproduce the commercial product's card faces, logo, packaging, or copy.
-- Issue #19 decides the complete set of play modes, product identity, settings, continuity features, languages, privacy behavior, and distribution requirements. No capability is silently excluded.
+- Local pass-and-play on one iPhone or iPad is the first planned mode, not a ceiling on the complete product.
+- A complete base game will support 3–9 named players.
+- The rules implementation will cover the approved 94-card deck: number cards, score modifiers, Freeze, Flip Three, and Second Chance.
+- The app will own dealing, legal choices, action targeting, scoring, round transitions, and victory detection.
+- The interface will be original and will not reproduce the commercial product's card faces, logo, packaging, or copy.
+- Issue #19 records owner decisions for the complete set of play modes, product identity, settings, continuity features, languages, privacy behavior, and distribution requirements.
 
 The rules engine remains independent of SwiftUI, device handoff, computer opponents, and networking so every approved mode can share one deterministic rules implementation.
 
@@ -27,24 +27,24 @@ The rules engine remains independent of SwiftUI, device handoff, computer oppone
 
 ## Rules source
 
-Issue #19 selects one authoritative rules edition because the publisher-maintained [Dized rules](https://rules.dized.com/game/dPDRM857TU-BFRF7LzGE0g/flip-7) and the original 2024 rules conflict on disputed edge cases. Issue #4 must not encode those disputed behaviors until the owner records that decision. Rule interpretations and tested edge cases belong in the relevant GitHub issue and core tests so future sessions can reconstruct why behavior exists.
+Issue #19 records the owner's authoritative-rules choice because the publisher-maintained [Dized rules](https://rules.dized.com/game/dPDRM857TU-BFRF7LzGE0g/flip-7) and the original 2024 rules conflict on disputed edge cases. Issue #4 implements that choice and records its interpretations as tested behavior so future sessions can reconstruct why the behavior exists.
 
-## Complete first-release capabilities
+## Complete-release gate
 
-1. Onboard players, explain the rules, and configure reusable 3–9-player rosters.
-2. Play the complete game in every mode approved by issue #19, beginning with private local handoffs.
-3. Resolve the full approved deck, every action-card edge case, and every end-game condition.
-4. Explain legal choices, action cards, round scoring, cumulative standings, and final results.
-5. Restore interrupted games safely and manage saved sessions without losing or corrupting state.
-6. Support VoiceOver, Dynamic Type, non-color cues, sufficient contrast, reduced transparency, and reduced motion throughout every flow.
-7. Provide settings, help, tutorial, sound, haptics, history, and player statistics as approved in issue #19.
-8. Complete rematches without recreating the roster.
-9. Meet measurable correctness, performance, memory, energy, privacy, and accessibility release gates.
-10. Provide a complete beta, support, update, migration, rollback, and App Store delivery path when public distribution is approved.
+The first release is complete only when:
 
-These capabilities are a baseline, not a ceiling. Every additional approved capability receives a focused GitHub issue with measurable acceptance criteria.
+1. Every decision named in issue #19 has an owner-recorded disposition and rationale.
+2. Every included capability has a focused GitHub issue with measurable acceptance criteria, and every such issue is complete.
+3. Players can finish the complete game in every approved mode, including private handoff in local play.
+4. The full selected rules contract, every card interaction, and every end-game condition are implemented and tested.
+5. Onboarding, legal choices, action cards, scoring, standings, and final results are understandable without external instructions.
+6. Interrupted games restore safely without lost or corrupted state.
+7. Every flow meets its VoiceOver, Dynamic Type, non-color cue, contrast, transparency, and motion requirements.
+8. Rematches preserve the approved player and game configuration.
+9. Measurable correctness, performance, memory, energy, privacy, and accessibility gates pass.
+10. The approved private, beta, or public distribution path includes its required support, update, migration, and rollback evidence.
 
-## Owner decisions required by issue #19
+## Decision areas recorded in issue #19
 
 1. Choose the authoritative rules edition.
 2. Choose local, computer-opponent, private-online, and public-matchmaking modes.

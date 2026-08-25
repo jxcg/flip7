@@ -2,7 +2,7 @@ import Testing
 
 @testable import Flip7Core
 
-@Test("The base ruleset exposes the complete game's agreed limits")
+@Test("The base ruleset exposes its agreed numeric limits")
 func baseRulesetLimits() {
   #expect(Ruleset.minimumPlayerCount == 3)
   #expect(Ruleset.maximumPlayerCount == 9)

@@ -1,6 +1,6 @@
 # Flip 7 for iOS
 
-A complete native SwiftUI implementation of the base 94-card press-your-luck game. Local pass-and-play for 3–9 people is the first implemented mode; the complete release modes are decided in GitHub issue #19.
+This project is building a complete native SwiftUI implementation of the base 94-card press-your-luck game. Local pass-and-play for 3–9 people is the first planned mode; GitHub issue #19 records the owner-approved complete release mode set.
 
 The product uses an original interface and must not be publicly distributed under the Flip 7 name or with commercial artwork until the owner confirms the necessary trademark and licensing rights.
 
@@ -35,4 +35,4 @@ See the [complete product contract](docs/PRODUCT.md), [architecture](docs/ARCHIT
 
 ## Roadmap
 
-Work is tracked in [GitHub issues](https://github.com/jxcg/flip7/issues). Their dependency graph defines the complete-release sequence, and issue [#19](https://github.com/jxcg/flip7/issues/19) records the product decisions that expand it. Every implementation issue contains dependencies, acceptance criteria, and a context-reset protocol.
+Work is tracked in [GitHub issues](https://github.com/jxcg/flip7/issues). The current dependency graph sequences approved work. Issue [#19](https://github.com/jxcg/flip7/issues/19) records owner decisions, after which every approved capability receives a dependent implementation issue with acceptance criteria and a context-reset protocol.
