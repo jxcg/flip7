@@ -15,13 +15,13 @@ This repository is an implementation prototype. It uses an original interface an
 Run core tests:
 
 ```sh
-swift test
+swift test -Xswiftc -warnings-as-errors
 ```
 
 Build the app without signing:
 
 ```sh
-xcodebuild -project flip7.xcodeproj -scheme flip7 -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/flip7-derived-data CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project flip7.xcodeproj -scheme flip7 -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/flip7-derived-data CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
 ```
 
 ## Architecture
