@@ -7,7 +7,12 @@
 - Before the first remote push, have a reviewer who did not implement the change inspect the complete `main...HEAD` diff at named base and head commits. Re-review changes made after that head before the next push or merge.
 - Record the review commits, reviewer, findings (or `None`), and each finding's disposition in the pull request.
 - Keep rules and state transitions in `Flip7Core`; SwiftUI only renders state and sends commands.
-- Prefer native SwiftUI and standard controls. Guard custom Liquid Glass APIs with `if #available(iOS 26, *)` and keep an equivalent native iOS 18 fallback.
+- Treat `docs/PRODUCT.md` and owner decisions recorded in issue #19 as the product-scope sources of truth. Preserve the complete approved scope without silently excluding or promising capabilities.
+- Extract small, composable functions only when stable behavior has a real reuse point; do not generalize one-off code.
+- Test public behavior and invariants, not private call structure or incidental formatting. Helpers may reduce setup but must keep each scenario readable.
+- Before changing SwiftUI, consult current official Apple Developer Documentation and SDK availability for each material API or design choice. Record the sources and Xcode/SDK version in the issue or pull request.
+- Do not use deprecated APIs. Guard APIs newer than iOS 18 at each symbol's exact introduction version and preserve an equivalent native iOS 18 fallback.
+- Prefer standard SwiftUI controls. Cards and the table are content, not a custom Liquid Glass layer; reserve custom glass for sparse functional controls or navigation when Apple guidance supports it.
 - Prefer the smallest clear implementation; correctness, accessibility, and performance outrank ornament, line count, or speculative abstraction.
 - Record material decisions and test evidence in the issue or pull request before moving on.
 - If product intent or a rule is ambiguous, ask the human owner in the issue instead of guessing.
