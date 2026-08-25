@@ -16,10 +16,12 @@ The local-mode assumption is deliberately reversible. The rules engine must not 
 
 ## Product design principles
 
-- Follow native iOS interaction and layout conventions. Standard SwiftUI components should acquire the current system appearance without custom imitation.
-- Because the app deploys to iOS 18, guard custom Liquid Glass APIs with `if #available(iOS 26, *)` and provide an equivalent native fallback. Use custom glass only when it improves navigation or action hierarchy.
+- Follow native iOS interaction and layout conventions and review the current [SwiftUI updates](https://developer.apple.com/documentation/updates/swiftui) before implementation.
+- Use standard navigation, sheets, and controls so they acquire the current system appearance automatically. Cards and the table are content and must not receive custom Liquid Glass effects.
+- If custom Liquid Glass is functionally justified for a control, follow [Apple's adoption guidance](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass), guard every symbol at its exact availability, and preserve the same hierarchy and behavior with native iOS 18 controls. Combine multiple interacting custom effects in one `GlassEffectContainer`.
 - Keep the table visually restrained and original. Clear game state and legal actions matter more than ornament.
-- Treat VoiceOver, Dynamic Type, contrast, reduced motion, and responsive interaction as correctness requirements.
+- Respect system light and dark appearances, use system text styles where possible, and keep interactive regions at least 44 by 44 points.
+- Treat VoiceOver, Dynamic Type, non-color state cues, Increase Contrast, Reduce Transparency, Reduce Motion, and responsive interaction as correctness requirements.
 - Prefer the smallest clear implementation and measure rendering before adding custom effects. Never trade correctness or clarity for fewer lines.
 
 ## Rules source

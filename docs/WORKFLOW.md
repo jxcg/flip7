@@ -22,6 +22,16 @@ GitHub issues are the durable memory for this long-running project. Each branch 
 
 Frequent local commits do not require frequent pushes. Documentation-only edits need their issue-specific checks at each checkpoint; the full test and build pair is required once on the final pre-PR commit.
 
+## SwiftUI review evidence
+
+For every SwiftUI change:
+
+1. Consult the current official Apple Developer Documentation, API reference, and applicable Human Interface Guidelines instead of relying on memory or third-party summaries.
+2. Record the Apple URLs, Xcode version, SDK version, and every introduced API's exact availability.
+3. Preserve equivalent behavior and hierarchy on the iOS 18 deployment target when using a newer API.
+4. Run the README warning-as-error commands and confirm there are no deprecated API diagnostics.
+5. Have an independent reviewer compare the implementation with those Apple sources before push or merge.
+
 ## Context reset checklist
 
 - What outcome and acceptance criteria does the current issue require?
@@ -30,3 +40,4 @@ Frequent local commits do not require frequent pushes. Documentation-only edits 
 - What is the smallest next change that advances only this issue?
 - Which command will prove the change works?
 - Which base and head commits were reviewed, what was found, and how was each finding resolved?
+- For SwiftUI work, which current Apple sources and SDK declarations govern the implementation?
