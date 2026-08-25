@@ -1,8 +1,8 @@
 # Flip 7 for iOS
 
-A native SwiftUI implementation of the base 94-card press-your-luck game. The first playable milestone is a local pass-and-play experience for 3–9 people on one iPhone or iPad.
+A complete native SwiftUI implementation of the base 94-card press-your-luck game. Local pass-and-play for 3–9 people is the first implemented mode; the complete release modes are decided in GitHub issue #19.
 
-This repository is an implementation prototype. It uses an original interface and must not be publicly distributed under the Flip 7 name or with commercial artwork until the owner confirms the necessary trademark and licensing rights.
+The product uses an original interface and must not be publicly distributed under the Flip 7 name or with commercial artwork until the owner confirms the necessary trademark and licensing rights.
 
 ## Requirements
 
@@ -31,8 +31,8 @@ xcodebuild -project flip7.xcodeproj -scheme flip7 -sdk iphonesimulator -destinat
 - `Tests/Flip7CoreTests`: fast rules-engine tests
 - `docs`: product, architecture, and delivery decisions
 
-See [MVP scope](docs/MVP.md), [architecture](docs/ARCHITECTURE.md), and [issue workflow](docs/WORKFLOW.md).
+See the [complete product contract](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), and [issue workflow](docs/WORKFLOW.md).
 
 ## Roadmap
 
-Work is tracked in [GitHub issues](https://github.com/jxcg/flip7/issues). The sequenced MVP runs from issue [#1](https://github.com/jxcg/flip7/issues/1) through [#10](https://github.com/jxcg/flip7/issues/10). Every issue contains its dependencies, acceptance criteria, and context-reset protocol.
+Work is tracked in [GitHub issues](https://github.com/jxcg/flip7/issues). Their dependency graph defines the complete-release sequence, and issue [#19](https://github.com/jxcg/flip7/issues/19) records the product decisions that expand it. Every implementation issue contains dependencies, acceptance criteria, and a context-reset protocol.

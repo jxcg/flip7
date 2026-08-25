@@ -2,8 +2,8 @@ import Testing
 
 @testable import Flip7Core
 
-@Test("The MVP ruleset exposes its agreed game limits")
-func mvpRulesetLimits() {
+@Test("The base ruleset exposes the complete game's agreed limits")
+func baseRulesetLimits() {
   #expect(Ruleset.minimumPlayerCount == 3)
   #expect(Ruleset.maximumPlayerCount == 9)
   #expect(Ruleset.targetScore == 200)

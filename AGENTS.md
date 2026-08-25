@@ -7,6 +7,7 @@
 - Before the first remote push, have a reviewer who did not implement the change inspect the complete `main...HEAD` diff at named base and head commits. Re-review changes made after that head before the next push or merge.
 - Record the review commits, reviewer, findings (or `None`), and each finding's disposition in the pull request.
 - Keep rules and state transitions in `Flip7Core`; SwiftUI only renders state and sends commands.
+- Treat `docs/PRODUCT.md` and issue #19 as the product-scope source of truth. Do not frame the work as a prototype or minimum release, and do not silently exclude capabilities.
 - Extract small, composable functions only when stable behavior has a real reuse point; do not generalize one-off code.
 - Test public behavior and invariants, not private call structure or incidental formatting. Helpers may reduce setup but must keep each scenario readable.
 - Before changing SwiftUI, consult current official Apple Developer Documentation and SDK availability for each material API or design choice. Record the sources and Xcode/SDK version in the issue or pull request.
