@@ -14,6 +14,14 @@ Deliver a polished native iOS game that runs one complete base-rules match from 
 
 The local-mode assumption is deliberately reversible. The rules engine must not know about SwiftUI, device handoff, bots, or networking.
 
+## Product design principles
+
+- Follow native iOS interaction and layout conventions. Standard SwiftUI components should acquire the current system appearance without custom imitation.
+- Because the app deploys to iOS 18, guard custom Liquid Glass APIs with `if #available(iOS 26, *)` and provide an equivalent native fallback. Use custom glass only when it improves navigation or action hierarchy.
+- Keep the table visually restrained and original. Clear game state and legal actions matter more than ornament.
+- Treat VoiceOver, Dynamic Type, contrast, reduced motion, and responsive interaction as correctness requirements.
+- Prefer the smallest clear implementation and measure rendering before adding custom effects. Never trade correctness or clarity for fewer lines.
+
 ## Rules source
 
 Implementation follows the publisher-maintained [Dized rules](https://rules.dized.com/game/dPDRM857TU-BFRF7LzGE0g/flip-7) for the base game. Rule interpretations and tested edge cases belong in the relevant GitHub issue and core tests so future sessions can reconstruct why behavior exists.

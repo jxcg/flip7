@@ -12,12 +12,15 @@ GitHub issues are the durable memory for this long-running project. Each branch 
 
 ## Finish an issue
 
-1. Run the issue-specific tests plus `swift test` and the README build command.
-2. Review the diff for unrelated or generated files.
-3. Commit and push `issue-X`.
-4. Open a focused pull request with `Closes #X`.
-5. Record decisions, limitations, and exact verification results in the pull request.
-6. Begin another issue only from the updated `main` after the prior dependency is merged.
+1. Commit each coherent checkpoint locally and run the issue-specific checks affected by product-code changes.
+2. On the final pre-PR commit, run `swift test` and the README signing-free build command.
+3. Record the `main` base and branch head commits. Before pushing, ask a reviewer who did not implement the change to attack that complete diff for correctness, scope, counterexamples, unnecessary code, and performance or accessibility regressions.
+4. Resolve every finding or record the evidence for rejecting it. If the branch changes, rerun affected checks and have the resulting diff re-reviewed before the next push.
+5. Push `issue-X` and open a focused pull request with `Closes #X`.
+6. Record decisions, limitations, exact verification results, the reviewed commits, the reviewer, findings (or `None`), and dispositions in the pull request.
+7. Begin another issue only from updated `main` after the prior dependency is merged.
+
+Frequent local commits do not require frequent pushes. Documentation-only edits need their issue-specific checks at each checkpoint; the full test and build pair is required once on the final pre-PR commit.
 
 ## Context reset checklist
 
@@ -26,3 +29,4 @@ GitHub issues are the durable memory for this long-running project. Each branch 
 - What decisions have already been recorded?
 - What is the smallest next change that advances only this issue?
 - Which command will prove the change works?
+- Which base and head commits were reviewed, what was found, and how was each finding resolved?
