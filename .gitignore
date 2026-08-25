@@ -16,6 +16,7 @@
 !*.template.env
 !.secrets.example
 !.secrets.sample
+!.secrets.template
 [Ss]ecrets.xcconfig
 *.secrets.xcconfig
 [Ll]ocal.xcconfig
@@ -103,6 +104,10 @@ logs/
 *.trace
 *.local.log
 *.tracev3
+!*.example.log
+!*.sample.log
+!*.example.trace
+!*.sample.trace
 *.crash
 *.ips
 *.hang
