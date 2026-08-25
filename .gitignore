@@ -20,10 +20,14 @@
 *.secrets.xcconfig
 *.local.xcconfig
 *.private.xcconfig
+[Ll]ocal.xcconfig
+[Pp]rivate.xcconfig
 [Ss]ecrets*.plist
 *.secrets.plist
 [Ss]ecrets*.json
 *.secrets.json
+[Ss]ecrets.yml
+[Ss]ecrets.yaml
 *.local.plist
 *.local.json
 *.local.yml
