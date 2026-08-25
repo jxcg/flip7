@@ -7,8 +7,8 @@
 - Before the first remote push, have a reviewer who did not implement the change inspect the complete `main...HEAD` diff at named base and head commits. Re-review changes made after that head before the next push or merge.
 - Record the review commits, reviewer, findings (or `None`), and each finding's disposition in the pull request.
 - Keep rules and state transitions in `Flip7Core`; SwiftUI only renders state and sends commands.
-- Share stable behavior through small, composable functions; do not generalize one-off code.
-- Test public behavior and invariants, not private call structure. Helpers may reduce setup but must keep each scenario readable.
+- Extract small, composable functions only when stable behavior has a real reuse point; do not generalize one-off code.
+- Test public behavior and invariants, not private call structure or incidental formatting. Helpers may reduce setup but must keep each scenario readable.
 - Prefer native SwiftUI and standard controls. Guard custom Liquid Glass APIs with `if #available(iOS 26, *)` and keep an equivalent native iOS 18 fallback.
 - Prefer the smallest clear implementation; correctness, accessibility, and performance outrank ornament, line count, or speculative abstraction.
 - Record material decisions and test evidence in the issue or pull request before moving on.
