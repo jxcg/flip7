@@ -27,7 +27,7 @@ Frequent local commits do not require frequent pushes. Documentation-only edits 
 For every SwiftUI change:
 
 1. Consult the current official Apple Developer Documentation, API reference, and applicable Human Interface Guidelines instead of relying on memory or third-party summaries.
-2. Record the Apple URLs, Xcode version, SDK version, and every introduced API's exact availability.
+2. Record the Apple URLs, Xcode version, SDK version, and the exact availability of every introduced API newer than the iOS 18 deployment target.
 3. Preserve equivalent behavior and hierarchy on the iOS 18 deployment target when using a newer API.
 4. Run the README warning-as-error commands and confirm there are no deprecated API diagnostics.
 5. Have an independent reviewer compare the implementation with those Apple sources before push or merge.
