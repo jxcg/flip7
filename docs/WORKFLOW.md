@@ -35,7 +35,7 @@ Frequent local commits do not require frequent pushes. Documentation-only edits 
 
 4. Count the red only when the build succeeds, only the intended test function or cases run with their count recorded, the claimed scenario executes, and the contract assertion fails because the observed behavior differs from the approved expectation. Compilation errors, setup failures, crashes, timeouts, unrelated failures, zero selected tests, and deliberately impossible fixtures are invalid.
 5. If the test passes or fails for the wrong reason, stop before editing production code. Reassess the report, authoritative source, wording, fixture, and assertion, then record the conclusion in the issue or pull request. Any later change to the test, its fixtures, its target or configuration, or the focused command requires a new red run against unfixed production code.
-6. Without changing the test, fixtures, test target/configuration, or focused command, make the smallest fix in a separate commit. Run the focused command green, then run affected suites and final project checks.
+6. Without changing the test, fixtures, test target/configuration, or focused command, make the smallest fix in a separate commit. Run the focused command and verify that the same intended test function or cases and count run and pass, not skip, then run affected suites and final project checks.
 7. Keep the red and green commits reachable from the pull-request head. Never push or merge while red is the branch head.
 
 Record TDD as `N/A` with a reason only when a change cannot affect observable runtime behavior; file type alone is not an exemption. Pure refactors record affected checks green before and after without fabricating a failure.

@@ -18,7 +18,7 @@ Closes #
 - Baseline parent; clean-worktree command(s), results, and exit statuses:
 - Test-only red commit; fix/green commit:
 - Contract source and expectation; actual red diagnostic:
-- Clean-worktree focused command; selected test/count; red and green exit statuses:
+- Clean-worktree focused command; selected test/count on red and green; exit statuses:
 - Test, fixtures, target/configuration, and command unchanged through green (`Yes` or `N/A`; otherwise create a new red):
 - Affected and final checks:
 
