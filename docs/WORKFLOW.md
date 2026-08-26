@@ -22,6 +22,24 @@ GitHub issues are the durable memory for this long-running project. Each branch 
 
 Frequent local commits do not require frequent pushes. Documentation-only edits need their issue-specific checks at each checkpoint; the full test and build pair is required once on the final pre-PR commit.
 
+## Change behavior or fix a defect
+
+1. Run every recorded command from a clean worktree at its named commit. Before writing the test, cite the issue criterion, authoritative source, or owner decision that established the expected behavior. Run the affected baseline checks green and record their commit and commands; that commit must be the red commit's exact parent.
+2. Add one deterministic test at the nearest public behavior or invariant boundary. Do not target private helpers or rely on sleeps, unseeded randomness, unisolated shared mutable state, incidental formatting, or broad snapshots. Commit only test-side changes against the unfixed production code.
+3. List the test identifiers, then run the intended test with the current nondeprecated filter:
+
+   ```sh
+   swift test list -Xswiftc -warnings-as-errors
+   swift test -Xswiftc -warnings-as-errors --filter 'ModuleName\.testFunctionName'
+   ```
+
+4. Count the red only when the build succeeds, only the intended test function or cases run with their count recorded, the claimed scenario executes, and the contract assertion fails because the observed behavior differs from the approved expectation. Compilation errors, setup failures, crashes, timeouts, unrelated failures, zero selected tests, and deliberately impossible fixtures are invalid.
+5. If the test passes or fails for the wrong reason, stop before editing production code. Reassess the report, authoritative source, wording, fixture, and assertion, then record the conclusion in the issue or pull request. Any later change to the test, its fixtures, its target or configuration, or the focused command requires a new red run against unfixed production code.
+6. Without changing the test, fixtures, test target/configuration, or focused command, make the smallest fix in a separate commit. Run the focused command green, then run affected suites and final project checks.
+7. Keep the red and green commits reachable from the pull-request head. Never push or merge while red is the branch head.
+
+Record TDD as `N/A` with a reason only when a change cannot affect observable runtime behavior; file type alone is not an exemption. Pure refactors record affected checks green before and after without fabricating a failure.
+
 ## SwiftUI review evidence
 
 For every SwiftUI change:
