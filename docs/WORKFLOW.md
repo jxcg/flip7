@@ -13,7 +13,7 @@ GitHub issues are the durable memory for this long-running project. Each branch 
 ## Finish an issue
 
 1. Commit each coherent checkpoint locally and run the issue-specific checks affected by product-code changes.
-2. On the final pre-PR commit, run `swift test` and the README signing-free build command.
+2. On the final pre-PR commit, run the README test and signing-free build commands.
 3. Record the `main` base and branch head commits. Before pushing, ask a reviewer who did not implement the change to attack that complete diff for correctness, scope, counterexamples, unnecessary code, and performance or accessibility regressions.
 4. Resolve every finding or record the evidence for rejecting it. If the branch changes, rerun affected checks and have the resulting diff re-reviewed before the next push.
 5. Push `issue-X` and open a focused pull request with `Closes #X`.
