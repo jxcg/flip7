@@ -1,22 +1,27 @@
 # Repository working agreement
 
+- Lead with the result. Write to a colleague in direct, natural, concise language, and vary sentence length. Keep internal reasoning out. Avoid em dashes, exactly three bullet points, mirrored paragraph structures, filler, jargon, analogies, decorative formatting, canned contrasts, and stock AI phrasing. Use contractions and sentence openings such as `And` or `But` when they sound natural. Preserve required facts and review evidence, and never trade clarity for brevity. Apply this to agent updates, issue comments, pull request bodies, and contributor guidance.
 - Work on exactly one GitHub issue at a time.
 - Before editing, run `gh issue view X` and re-read the full issue plus its dependency PRs.
 - Start from the latest `main` and use a fresh branch named `issue-X`, where X is the GitHub issue number.
+- Use Conventional Commits for every commit, such as `feat:`, `fix:`, `docs:`, `test:`, `ci:`, or `chore:`.
 - Keep each commit coherent and independently reviewable. Product-code commits must pass the issue-specific checks they affect.
 - Before changing observable behavior or fixing a defect, prove the affected baseline green, then commit only test-side changes and verify that they build, run only the intended deterministic test function or cases, and fail the approved contract for the expected reason. If they do not, stop and reassess; keep the valid test-side changes unchanged while making the fix in a separate commit, and never push or merge with red at the branch head.
 - Before the first remote push, have a reviewer who did not implement the change inspect the complete `main...HEAD` diff at named base and head commits. Re-review changes made after that head before the next push or merge.
 - Record the review commits, reviewer, findings (or `None`), and each finding's disposition in the pull request.
-- Keep rules and state transitions in `Flip7Core`; SwiftUI only renders state and sends commands.
-- Treat `docs/PRODUCT.md` and owner decisions recorded in issue #19 as the product-scope sources of truth. Preserve the complete approved scope without silently excluding or promising capabilities.
+- Keep game rules and state transitions in the platform-independent core. Presentation, storage, and networking may observe or transport state, but must not reimplement rules.
+- Resolve scope or behavior disagreements by checking the current issue contract, current repository behavior, current product contract, recorded owner decisions, official guidance, and installed SDK declarations. Preserve the complete approved scope without silently excluding or promising capabilities.
 - Extract small, composable functions only when stable behavior has a real reuse point; do not generalize one-off code.
 - Test public behavior and invariants, not private call structure or incidental formatting. Helpers may reduce setup but must keep each scenario readable.
-- Before changing SwiftUI, consult current official Apple Developer Documentation and SDK availability for each material API or design choice. Record the sources and Xcode/SDK version in the issue or pull request.
-- Do not use deprecated APIs. Guard APIs newer than iOS 18 at each symbol's exact introduction version and preserve an equivalent native iOS 18 fallback.
-- Prefer standard SwiftUI controls. Cards and the table are content, not a custom Liquid Glass layer; reserve custom glass for sparse functional controls or navigation when Apple guidance supports it.
+- Before Apple-platform implementation or review, consult current official Apple Developer Documentation and the relevant Human Interface Guidelines for each material API or design decision. Read the deployment target from the repository, confirm exact availability and deprecations in the installed SDK, then record source URLs, Xcode version, and relevant SDK version in the issue or pull request.
+- If an Apple link redirects, returns 404, or lands on the wrong subject, use Apple Developer Documentation navigation or search to find the current page and confirm it governs the same claim. For API claims, also validate availability and deprecation against the installed SDK. Record the old and replacement URLs in the issue or pull request; if no authoritative successor exists, ask the owner in the issue.
+- Do not use deprecated APIs. Guard newer APIs at each symbol's exact introduction relative to the repository's current deployment target, and preserve equivalent native behavior on supported older versions.
+- Prefer native SwiftUI and standard system controls. Treat cards and the table as content rather than custom system material; add a custom effect only for a functional need supported by current Apple guidance.
+- Treat accessibility, launch and resume time, runtime and energy efficiency, download and installed size, and bounded app-owned storage as correctness requirements. Add caching only when measurement proves a benefit, with a hard owner-approved limit and eviction rule. Verify affected budgets in the environments required by the current issue.
 - Prefer the smallest clear implementation; correctness, accessibility, and performance outrank ornament, line count, or speculative abstraction.
-- Record material decisions and test evidence in the issue or pull request before moving on.
-- If product intent or a rule is ambiguous, ask the human owner in the issue instead of guessing.
+- Record material decisions and test evidence in the issue or pull request before moving on. If product intent or a rule is unclear, ask the human owner in the issue instead of guessing.
+- Use a human-readable development stage such as `First Prototype` only when naming the stage adds useful context.
+- Never commit secrets, private data, personal developer state, signing material, private configuration, or unrequired generated artifacts. If a suspected secret is found, do not display its value; report only its type and location, stop, and ask the owner to rotate it. Inspect staged files before every commit and push.
 - Do not copy commercial Flip 7 artwork, logos, or other protected assets.
 - Do not publish under the Flip 7 name until the owner confirms trademark/licensing rights.
-- Run `swift test` and the signing-free iOS build command from the README on the final pre-PR commit, and again after any later product-code change.
+- Run the repository's documented full test command and signing-free app build on the final pre-PR commit, and again after any later product-code change.

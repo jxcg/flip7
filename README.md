@@ -1,18 +1,14 @@
-# Flip 7 for iOS
+# Flip7
 
-This project is building a complete native SwiftUI implementation of the base 94-card press-your-luck game. Local pass-and-play for 3–9 people is the first planned mode; GitHub issue #19 records the owner-approved complete release mode set.
+Flip7 is a digital press-your-luck card game. You draw cards to build your score and choose when to stop.
 
-The product uses an original interface and must not be publicly distributed under the Flip 7 name or with commercial artwork until the owner confirms the necessary trademark and licensing rights.
-
-## Requirements
-
-- Xcode 26.6 or newer
-- Swift 6.0 or newer
-- iOS or iPadOS 18.0 or newer
+The interface and artwork must be original. Do not publicly distribute the app under the Flip 7 name until the owner confirms the required trademark and licensing rights.
 
 ## Build and test
 
-Run core tests:
+This repository currently contains a native SwiftUI app for iOS and iPadOS. Development requires Xcode 26.6 or newer and Swift 6.0 or newer. The app supports version 18.0 or newer on both operating systems.
+
+Test the game rules:
 
 ```sh
 swift test -Xswiftc -warnings-as-errors
@@ -24,15 +20,9 @@ Build the app without signing:
 xcodebuild -project flip7.xcodeproj -scheme flip7 -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/flip7-derived-data CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
 ```
 
-## Architecture
+## Project layout
 
-- `flip7/Core`: deterministic, UI-independent game rules
-- `flip7`: SwiftUI application and presentation code
-- `Tests/Flip7CoreTests`: fast rules-engine tests
-- `docs`: product, architecture, and delivery decisions
-
-See the [complete product contract](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), and [issue workflow](docs/WORKFLOW.md).
-
-## Roadmap
-
-Work is tracked in [GitHub issues](https://github.com/jxcg/flip7/issues). The current dependency graph sequences approved work. Issue [#19](https://github.com/jxcg/flip7/issues/19) records owner decisions, after which every approved capability receives a dependent implementation issue with acceptance criteria and a context-reset protocol.
+- `flip7/Core`: game rules kept separate from the interface
+- `flip7`: SwiftUI app and presentation code
+- `Tests/Flip7CoreTests`: fast tests for the game rules
+- `docs`: [product contract](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), and [issue workflow](docs/WORKFLOW.md)
