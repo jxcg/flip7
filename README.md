@@ -1,14 +1,14 @@
-# Flip 7 for iOS
+# Flip7
 
-This project is building a complete native SwiftUI implementation of the base 94-card press-your-luck game. Local pass-and-play for 3–9 people is the first planned mode; GitHub issue #19 records the owner-approved complete release mode set.
+Flip7 is a digital press-your-luck card game about drawing cards, building a score, and deciding when to stop.
 
-The product uses an original interface and must not be publicly distributed under the Flip 7 name or with commercial artwork until the owner confirms the necessary trademark and licensing rights.
+The interface and artwork must be original. Do not publicly distribute the app under the Flip 7 name until the owner confirms the required trademark and licensing rights.
+
+This repository contains a native SwiftUI app for iOS and iPadOS.
 
 ## Requirements
 
-- Xcode 26.6 or newer
-- Swift 6.0 or newer
-- iOS or iPadOS 18.0 or newer
+Development requires Xcode 26.6 or newer and Swift 6.0 or newer. The app supports iOS and iPadOS 18.0 or newer.
 
 ## Build and test
 
@@ -32,7 +32,3 @@ xcodebuild -project flip7.xcodeproj -scheme flip7 -sdk iphonesimulator -destinat
 - `docs`: product, architecture, and delivery decisions
 
 See the [complete product contract](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), and [issue workflow](docs/WORKFLOW.md).
-
-## Roadmap
-
-Work is tracked in [GitHub issues](https://github.com/jxcg/flip7/issues). The current dependency graph sequences approved work. Issue [#19](https://github.com/jxcg/flip7/issues/19) records owner decisions, after which every approved capability receives a dependent implementation issue with acceptance criteria and a context-reset protocol.
