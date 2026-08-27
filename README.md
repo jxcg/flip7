@@ -6,7 +6,7 @@ The interface and artwork must be original. Do not publicly distribute the app u
 
 ## Build and test
 
-This repository currently contains a native SwiftUI app for iOS and iPadOS 18.0 or newer. Build it with Xcode 26.6 or newer and Swift 6.0 or newer.
+This repository currently contains a native SwiftUI app for iOS and iPadOS. Development requires Xcode 26.6 or newer and Swift 6.0 or newer. The app supports version 18.0 or newer on both operating systems.
 
 Test the game rules:
 
