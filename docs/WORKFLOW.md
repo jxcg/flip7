@@ -45,8 +45,8 @@ Record TDD as `N/A` with a reason only when a change cannot affect observable ru
 For every SwiftUI change:
 
 1. Consult the current official Apple Developer Documentation, API reference, and applicable Human Interface Guidelines instead of relying on memory or third-party summaries.
-2. Record the Apple URLs, Xcode version, SDK version, and the exact availability of every introduced API newer than the iOS 18 deployment target.
-3. Preserve equivalent behavior and hierarchy on the iOS 18 deployment target when using a newer API.
+2. Record the Apple URLs, Xcode version, SDK version, and the exact availability of every introduced API newer than the repository's current minimum deployment target.
+3. Preserve equivalent behavior and hierarchy on the current minimum deployment target when using a newer API.
 4. Run the README warning-as-error commands and confirm there are no deprecated API diagnostics.
 5. Have an independent reviewer compare the implementation with those Apple sources before push or merge.
 

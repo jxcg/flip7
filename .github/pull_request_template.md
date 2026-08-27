@@ -36,7 +36,7 @@ Closes #
 - SwiftUI changed (`Yes` or `No`):
 - Official Apple documentation/HIG:
 - Xcode and SDK versions:
-- Newer APIs, exact availability, and iOS 18 fallbacks:
+- Newer APIs, exact availability, and supported deployment-target fallbacks:
 - Deprecated API diagnostics (`None` or `N/A`):
 
 ## Continuity notes
