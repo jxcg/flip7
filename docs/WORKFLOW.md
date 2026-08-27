@@ -40,9 +40,9 @@ Frequent local commits do not require frequent pushes. Documentation-only edits 
 
 Record TDD as `N/A` with a reason only when a change cannot affect observable runtime behavior; file type alone is not an exemption. Pure refactors record affected checks green before and after without fabricating a failure.
 
-## SwiftUI review evidence
+## Apple-platform review evidence
 
-For every SwiftUI change:
+For every Apple-platform API or design change:
 
 1. Consult the current official Apple Developer Documentation, API reference, and applicable Human Interface Guidelines instead of relying on memory or third-party summaries.
 2. Record the Apple URLs, Xcode version, SDK version, and the exact availability of every introduced API newer than the repository's current minimum deployment target.
@@ -58,4 +58,4 @@ For every SwiftUI change:
 - What is the smallest next change that advances only this issue?
 - Which command will prove the change works?
 - Which base and head commits were reviewed, what was found, and how was each finding resolved?
-- For SwiftUI work, which current Apple sources and SDK declarations govern the implementation?
+- For Apple-platform work, which current Apple sources and SDK declarations govern the implementation?

@@ -4,7 +4,7 @@ Flip7 is a digital press-your-luck card game about drawing cards, building a sco
 
 The interface and artwork must be original. Do not publicly distribute the app under the Flip 7 name until the owner confirms the required trademark and licensing rights.
 
-This repository contains a native SwiftUI app for iOS and iPadOS.
+This repository currently contains a native SwiftUI app for iOS and iPadOS.
 
 ## Requirements
 

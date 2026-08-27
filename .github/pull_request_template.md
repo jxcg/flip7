@@ -8,8 +8,7 @@ Closes #
 
 ## Verification
 
-- [ ] `swift test`
-- [ ] Signing-free iOS Simulator build from the README
+- [ ] Full repository tests and signing-free iOS Simulator build from the README
 - [ ] Issue-specific checks
 
 ## TDD evidence
@@ -31,10 +30,10 @@ Closes #
 - Dispositions:
 - [ ] Any change after the reviewed commit was re-reviewed before push or merge
 
-## Apple API review
+## Apple-platform review
 
-- SwiftUI changed (`Yes` or `No`):
-- Official Apple documentation/HIG:
+- Apple-platform API or design changed (`Yes` or `No`):
+- Official Apple documentation and Human Interface Guidelines:
 - Xcode and SDK versions:
 - Newer APIs, exact availability, and supported deployment-target fallbacks:
 - Deprecated API diagnostics (`None` or `N/A`):
