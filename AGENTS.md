@@ -4,6 +4,7 @@
 - Before editing, run `gh issue view X` and re-read the full issue plus its dependency PRs.
 - Start from the latest `main` and use a fresh branch named `issue-X`, where X is the GitHub issue number.
 - Keep each commit coherent and independently reviewable. Product-code commits must pass the issue-specific checks they affect.
+- Before changing observable behavior or fixing a defect, prove the affected baseline green, then commit only test-side changes and verify that they build, run only the intended deterministic test function or cases, and fail the approved contract for the expected reason. If they do not, stop and reassess; keep the valid test-side changes unchanged while making the fix in a separate commit, and never push or merge with red at the branch head.
 - Before the first remote push, have a reviewer who did not implement the change inspect the complete `main...HEAD` diff at named base and head commits. Re-review changes made after that head before the next push or merge.
 - Record the review commits, reviewer, findings (or `None`), and each finding's disposition in the pull request.
 - Keep rules and state transitions in `Flip7Core`; SwiftUI only renders state and sends commands.
