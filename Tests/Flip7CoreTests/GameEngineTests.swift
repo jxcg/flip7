@@ -204,6 +204,29 @@ func actionCreatesPendingDecision() throws {
   #expect(events.last == .actionRequiresResolution(decision))
 }
 
+@Test(
+  "Freeze and Flip Three expose every active target",
+  arguments: [ActionCard.freeze, .flipThree]
+)
+func targetedActionsExposeActivePlayers(_ action: ActionCard) throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(action),
+      .number(.two),
+      .number(.three),
+    ])
+  )
+
+  try engine.send(.startRound)
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a pending action decision")
+    return
+  }
+  #expect(decision.legalTargetIDs == [player(0), player(1), player(2)])
+}
+
 @Test("Seven unique numbers end the round and bank every eligible score")
 func flipSevenEndsRound() throws {
   var engine = try GameEngine(
