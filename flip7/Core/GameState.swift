@@ -73,6 +73,7 @@ public enum ActionContinuation: Equatable, Codable, Sendable {
 public struct PendingActionDecision: Equatable, Codable, Sendable {
   public let sourcePlayerID: PlayerID
   public let card: GameCard
+  public let legalTargetIDs: [PlayerID]
   public let continuation: ActionContinuation
 }
 
@@ -110,6 +111,7 @@ public enum GameCommand: Equatable, Codable, Sendable {
   case hit(PlayerID)
   case stay(PlayerID)
   case startNextRound
+  case chooseActionTarget(cardID: CardID, targetPlayerID: PlayerID)
 }
 
 public enum GameEvent: Equatable, Codable, Sendable {

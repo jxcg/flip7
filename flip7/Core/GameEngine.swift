@@ -146,6 +146,9 @@ public struct GameEngine: Equatable, Codable, Sendable {
       }
       events.append(.playerStayed(expectedPlayerID))
       advanceTurn(after: expectedPlayerID, events: &events)
+
+    case .chooseActionTarget:
+      throw GameRuleError.commandNotAllowed
     }
   }
 
@@ -241,6 +244,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
       let decision = PendingActionDecision(
         sourcePlayerID: playerID,
         card: card,
+        legalTargetIDs: [],
         continuation: continuation
       )
       state.phase = .awaitingAction(decision)
