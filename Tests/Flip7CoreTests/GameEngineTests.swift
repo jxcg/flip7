@@ -155,6 +155,31 @@ func secondChanceHook() throws {
   )
 }
 
+@Test("A second Second Chance is discarded when no active player can take it")
+func secondChanceWithoutEligibleTargetIsDiscarded() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(.secondChance),
+      .number(.two),
+      .number(.three),
+      .number(.one),
+      .action(.secondChance),
+    ])
+  )
+  try engine.send(.startRound)
+
+  let originalSecondChance = engine.state.players[1].secondChance
+  try engine.send(.hit(player(1)))
+  try engine.send(.stay(player(2)))
+  try engine.send(.stay(player(0)))
+  try engine.send(.hit(player(1)))
+
+  #expect(engine.state.players[1].secondChance == originalSecondChance)
+  #expect(engine.state.deck.discardedCount == 1)
+  #expect(engine.state.phase == .awaitingTurn(player(1)))
+}
+
 @Test("An unresolved action pauses with its exact opening-deal continuation")
 func actionCreatesPendingDecision() throws {
   var engine = try GameEngine(
