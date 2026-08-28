@@ -228,7 +228,16 @@ public struct GameEngine: Equatable, Codable, Sendable {
       events.append(.secondChanceGranted(playerID: playerID, card: card))
       return .resolved
 
-    case .action:
+    case .action(let action):
+      if action == .secondChance,
+        !state.players.contains(where: { player in
+          player.status == .active && player.secondChance == nil
+        })
+      {
+        state.deck.discard(card)
+        return .resolved
+      }
+
       let decision = PendingActionDecision(
         sourcePlayerID: playerID,
         card: card,
