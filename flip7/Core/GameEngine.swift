@@ -241,10 +241,18 @@ public struct GameEngine: Equatable, Codable, Sendable {
         return .resolved
       }
 
+      let legalTargetIDs: [PlayerID]
+      switch action {
+      case .freeze, .flipThree:
+        legalTargetIDs = state.activePlayerIDs
+      case .secondChance:
+        legalTargetIDs = []
+      }
+
       let decision = PendingActionDecision(
         sourcePlayerID: playerID,
         card: card,
-        legalTargetIDs: [],
+        legalTargetIDs: legalTargetIDs,
         continuation: continuation
       )
       state.phase = .awaitingAction(decision)
