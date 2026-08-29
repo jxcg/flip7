@@ -907,28 +907,67 @@ func gameReshufflesOnExhaustion() throws {
   #expect(currentCardIDs == Set(originalDeck.drawPile.map(\.id)))
 }
 
-@Test("Game end selects the highest total and preserves ties")
-func gameVictoryAndTie() throws {
-  var tiedGame = try GameEngine(
+@Test("Tied leaders continue until one player leads")
+func tiedLeadersContinueUntilUniqueWinner() throws {
+  var engine = try GameEngine(
     playerNames: testNames,
     deck: testDeck([
+      .number(.two),
       .number(.one),
-      .number(.one),
-      .number(.one),
+      .number(.two),
+      .number(.four),
+      .number(.three),
+      .number(.three),
+      .number(.four),
+      .number(.four),
+      .number(.twelve),
     ]),
     dealerIndex: 0,
-    startingScores: [199, 0, 199]
+    startingScores: [198, 198, 191]
   )
-  try tiedGame.send(.startRound)
-  try stayEveryone(in: &tiedGame)
+  try engine.send(.startRound)
+  let firstTieEvents = try stayEveryone(in: &engine)
 
-  guard case .gameComplete(let tiedResult) = tiedGame.state.phase else {
-    Issue.record("Expected a tied game result")
+  guard case .roundComplete(let firstTie) = engine.state.phase else {
+    Issue.record("Expected the tied game to continue")
     return
   }
-  #expect(tiedResult.winningScore == 200)
-  #expect(tiedResult.winnerIDs == [player(0), player(2)])
+  #expect(engine.state.players.map(\.bankedScore) == [200, 200, 192])
+  #expect(firstTie.nextDealerID == player(1))
+  #expect(gameEndedCount(in: firstTieEvents) == 0)
 
+  try engine.send(.startNextRound)
+  #expect(engine.state.roundNumber == 2)
+  #expect(engine.state.dealerID == player(1))
+  #expect(engine.state.phase == .awaitingTurn(player(2)))
+  let secondTieEvents = try stayEveryone(in: &engine)
+
+  guard case .roundComplete(let secondTie) = engine.state.phase else {
+    Issue.record("Expected the persistent tie to continue")
+    return
+  }
+  #expect(engine.state.players.map(\.bankedScore) == [203, 203, 196])
+  #expect(secondTie.nextDealerID == player(2))
+  #expect(gameEndedCount(in: secondTieEvents) == 0)
+
+  try engine.send(.startNextRound)
+  #expect(engine.state.roundNumber == 3)
+  #expect(engine.state.dealerID == player(2))
+  #expect(engine.state.phase == .awaitingTurn(player(0)))
+  let winningEvents = try stayEveryone(in: &engine)
+
+  guard case .gameComplete(let result) = engine.state.phase else {
+    Issue.record("Expected one winner")
+    return
+  }
+  #expect(engine.state.players.map(\.bankedScore) == [207, 207, 208])
+  #expect(result.winnerIDs == [player(2)])
+  #expect(result.winningScore == 208)
+  #expect(gameEndedCount(in: winningEvents) == 1)
+}
+
+@Test("A unique highest score ends the game")
+func uniqueHighestScoreEndsGame() throws {
   var highestGame = try GameEngine(
     playerNames: testNames,
     deck: testDeck([
@@ -1023,6 +1062,12 @@ private func drawnPlayerIDs(in events: [GameEvent]) -> [PlayerID] {
   }
 }
 
+private func gameEndedCount(in events: [GameEvent]) -> Int {
+  events.count { event in
+    if case .gameEnded = event { true } else { false }
+  }
+}
+
 private func resolveAction(
   _ decision: PendingActionDecision,
   on targetPlayerID: PlayerID,
@@ -1041,10 +1086,13 @@ private func resolveAction(
   }
 }
 
-private func stayEveryone(in engine: inout GameEngine) throws {
+@discardableResult
+private func stayEveryone(in engine: inout GameEngine) throws -> [GameEvent] {
+  var events: [GameEvent] = []
   while let currentPlayerID = engine.state.currentPlayerID {
-    try engine.send(.stay(currentPlayerID))
+    events = try engine.send(.stay(currentPlayerID))
   }
+  return events
 }
 
 private func stayEveryone<R: RandomNumberGenerator>(
