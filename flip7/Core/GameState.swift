@@ -70,10 +70,16 @@ public enum ActionContinuation: Equatable, Codable, Sendable {
   case advanceTurn(after: PlayerID)
 }
 
+public struct DeferredAction: Equatable, Codable, Sendable {
+  public let sourcePlayerID: PlayerID
+  public let card: GameCard
+}
+
 public struct PendingActionDecision: Equatable, Codable, Sendable {
   public let sourcePlayerID: PlayerID
   public let card: GameCard
   public let legalTargetIDs: [PlayerID]
+  public let queuedActions: [DeferredAction]
   public let continuation: ActionContinuation
 }
 

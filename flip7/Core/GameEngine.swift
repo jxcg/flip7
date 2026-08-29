@@ -162,7 +162,12 @@ public struct GameEngine: Equatable, Codable, Sendable {
         updatePlayer(targetPlayerID) { player in
           player.status = .frozen
         }
-        try resume(decision.continuation, using: &generator, events: &events)
+        try continueActionResolution(
+          continuation: decision.continuation,
+          queuedActions: decision.queuedActions,
+          using: &generator,
+          events: &events
+        )
       case .flipThree:
         try resolveFlipThree(
           decision,
@@ -242,7 +247,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
     events: inout [GameEvent]
   ) throws {
     append(decision.card, to: playerID)
-    var deferredAction: GameCard?
+    var deferredActions: [DeferredAction] = []
 
     for _ in 0..<3 {
       let resolution = try drawCard(
@@ -256,10 +261,9 @@ public struct GameEngine: Equatable, Codable, Sendable {
       case .resolved:
         break
       case .deferredAction(let card):
-        guard deferredAction == nil else {
-          throw GameRuleError.commandNotAllowed
-        }
-        deferredAction = card
+        deferredActions.append(
+          DeferredAction(sourcePlayerID: playerID, card: card)
+        )
       case .roundEnded:
         return
       case .paused:
@@ -270,19 +274,34 @@ public struct GameEngine: Equatable, Codable, Sendable {
       }
     }
 
-    if let deferredAction {
-      let deferredDecision = PendingActionDecision(
-        sourcePlayerID: playerID,
-        card: deferredAction,
-        legalTargetIDs: state.activePlayerIDs,
-        continuation: decision.continuation
-      )
-      state.phase = .awaitingAction(deferredDecision)
-      events.append(.actionRequiresResolution(deferredDecision))
+    try continueActionResolution(
+      continuation: decision.continuation,
+      queuedActions: decision.queuedActions + deferredActions,
+      using: &generator,
+      events: &events
+    )
+  }
+
+  private mutating func continueActionResolution<R: RandomNumberGenerator>(
+    continuation: ActionContinuation,
+    queuedActions: [DeferredAction],
+    using generator: inout R,
+    events: inout [GameEvent]
+  ) throws {
+    guard let nextAction = queuedActions.first else {
+      try resume(continuation, using: &generator, events: &events)
       return
     }
 
-    try resume(decision.continuation, using: &generator, events: &events)
+    let decision = PendingActionDecision(
+      sourcePlayerID: nextAction.sourcePlayerID,
+      card: nextAction.card,
+      legalTargetIDs: state.activePlayerIDs,
+      queuedActions: Array(queuedActions.dropFirst()),
+      continuation: continuation
+    )
+    state.phase = .awaitingAction(decision)
+    events.append(.actionRequiresResolution(decision))
   }
 
   private mutating func drawCard<R: RandomNumberGenerator>(
@@ -348,6 +367,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
         sourcePlayerID: playerID,
         card: card,
         legalTargetIDs: legalTargetIDs,
+        queuedActions: [],
         continuation: continuation
       )
       state.phase = .awaitingAction(decision)
