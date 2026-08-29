@@ -227,6 +227,48 @@ func targetedActionsExposeActivePlayers(_ action: ActionCard) throws {
   #expect(decision.legalTargetIDs == [player(0), player(1), player(2)])
 }
 
+@Test("Freeze skips an undealt target and resumes the opening deal")
+func freezeDuringOpeningDeal() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(.freeze),
+      .number(.two),
+      .number(.three),
+    ])
+  )
+  try engine.send(.startRound)
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a pending Freeze decision")
+    return
+  }
+
+  let resolutionError: GameRuleError?
+  do {
+    try engine.send(
+      .chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: player(2)
+      )
+    )
+    resolutionError = nil
+  } catch let error as GameRuleError {
+    resolutionError = error
+  }
+
+  #expect(resolutionError == nil)
+  guard resolutionError == nil else {
+    return
+  }
+  #expect(engine.state.players[2].status == .frozen)
+  #expect(engine.state.players[2].roundCards.cards == [decision.card])
+  #expect(engine.state.players[0].roundCards.numberValues == [.two])
+  #expect(engine.state.deck.remainingCount == 1)
+  #expect(engine.state.deck.discardedCount == 0)
+  #expect(engine.state.phase == .awaitingTurn(player(1)))
+}
+
 @Test("Seven unique numbers end the round and bank every eligible score")
 func flipSevenEndsRound() throws {
   var engine = try GameEngine(
