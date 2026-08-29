@@ -180,6 +180,105 @@ func secondChanceWithoutEligibleTargetIsDiscarded() throws {
   #expect(engine.state.phase == .awaitingTurn(player(1)))
 }
 
+@Test("Second Chance belongs to its assigned target")
+func secondChanceRedirect() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(.secondChance),
+      .number(.two),
+      .number(.three),
+      .number(.one),
+      .number(.four),
+      .number(.five),
+      .action(.secondChance),
+    ])
+  )
+  try engine.send(.startRound)
+  try engine.send(.hit(player(1)))
+  try engine.send(.hit(player(2)))
+  try engine.send(.hit(player(0)))
+  try engine.send(.hit(player(1)))
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a Second Chance target decision")
+    return
+  }
+  #expect(decision.legalTargetIDs == [player(0), player(2)])
+
+  let pendingState = engine.state
+  expectGameError(.commandNotAllowed) {
+    try engine.send(
+      .chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: player(1)
+      )
+    )
+  }
+  #expect(engine.state == pendingState)
+
+  guard let events = resolveAction(decision, on: player(2), in: &engine) else {
+    return
+  }
+  #expect(engine.state.players[1].secondChance?.id == CardID(rawValue: 0))
+  #expect(engine.state.players[2].secondChance?.id == CardID(rawValue: 6))
+  #expect(events.contains(.secondChanceGranted(playerID: player(2), card: decision.card)))
+  #expect(engine.state.phase == .awaitingTurn(player(2)))
+}
+
+@Test("Second Chance resumes the remaining Flip Three draws")
+func secondChanceRedirectDuringFlipThree() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(.secondChance),
+      .number(.two),
+      .number(.three),
+      .number(.one),
+      .action(.flipThree),
+      .action(.secondChance),
+      .number(.four),
+      .number(.five),
+      .number(.six),
+    ])
+  )
+  try engine.send(.startRound)
+  try engine.send(.hit(player(1)))
+  try engine.send(.hit(player(2)))
+
+  guard case .awaitingAction(let flipThreeDecision) = engine.state.phase else {
+    Issue.record("Expected a Flip Three target decision")
+    return
+  }
+  guard let flipThreeEvents = resolveAction(
+    flipThreeDecision,
+    on: player(1),
+    in: &engine
+  ) else {
+    return
+  }
+  #expect(drawnPlayerIDs(in: flipThreeEvents) == [player(1)])
+
+  guard case .awaitingAction(let secondChanceDecision) = engine.state.phase else {
+    Issue.record("Expected a Second Chance target decision")
+    return
+  }
+  #expect(secondChanceDecision.legalTargetIDs == [player(0), player(2)])
+
+  guard let redirectEvents = resolveAction(
+    secondChanceDecision,
+    on: player(0),
+    in: &engine
+  ) else {
+    return
+  }
+  #expect(drawnPlayerIDs(in: redirectEvents) == [player(1), player(1)])
+  #expect(engine.state.players[0].secondChance?.id == CardID(rawValue: 5))
+  #expect(engine.state.players[1].secondChance?.id == CardID(rawValue: 0))
+  #expect(engine.state.deck.remainingCount == 1)
+  #expect(engine.state.phase == .awaitingTurn(player(0)))
+}
+
 @Test("An unresolved action pauses with its exact opening-deal continuation")
 func actionCreatesPendingDecision() throws {
   var engine = try GameEngine(
