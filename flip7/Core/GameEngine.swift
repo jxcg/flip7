@@ -165,6 +165,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
         try continueActionResolution(
           continuation: decision.continuation,
           queuedActions: decision.queuedActions,
+          forcedDraw: decision.forcedDraw,
           using: &generator,
           events: &events
         )
@@ -176,7 +177,19 @@ public struct GameEngine: Equatable, Codable, Sendable {
           events: &events
         )
       case .secondChance:
-        throw GameRuleError.commandNotAllowed
+        updatePlayer(targetPlayerID) { player in
+          player.secondChance = decision.card
+        }
+        events.append(
+          .secondChanceGranted(playerID: targetPlayerID, card: decision.card)
+        )
+        try continueActionResolution(
+          continuation: decision.continuation,
+          queuedActions: decision.queuedActions,
+          forcedDraw: decision.forcedDraw,
+          using: &generator,
+          events: &events
+        )
       }
     }
   }
@@ -247,12 +260,40 @@ public struct GameEngine: Equatable, Codable, Sendable {
     events: inout [GameEvent]
   ) throws {
     append(decision.card, to: playerID)
-    var deferredActions: [DeferredAction] = []
+    try continueFlipThree(
+      ForcedDrawProgress(
+        playerID: playerID,
+        remainingDrawCount: 3,
+        deferredActions: []
+      ),
+      continuation: decision.continuation,
+      queuedActions: decision.queuedActions,
+      using: &generator,
+      events: &events
+    )
+  }
 
-    for _ in 0..<3 {
+  private mutating func continueFlipThree<R: RandomNumberGenerator>(
+    _ progress: ForcedDrawProgress,
+    continuation: ActionContinuation,
+    queuedActions: [DeferredAction],
+    using generator: inout R,
+    events: inout [GameEvent]
+  ) throws {
+    var remainingDrawCount = progress.remainingDrawCount
+    var deferredActions = progress.deferredActions
+
+    while remainingDrawCount > 0 {
+      remainingDrawCount -= 1
       let resolution = try drawCard(
-        for: playerID,
-        continuation: decision.continuation,
+        for: progress.playerID,
+        continuation: continuation,
+        queuedActions: queuedActions,
+        forcedDraw: ForcedDrawProgress(
+          playerID: progress.playerID,
+          remainingDrawCount: remainingDrawCount,
+          deferredActions: deferredActions
+        ),
         deferringTargetedActions: true,
         using: &generator,
         events: &events
@@ -262,21 +303,21 @@ public struct GameEngine: Equatable, Codable, Sendable {
         break
       case .deferredAction(let card):
         deferredActions.append(
-          DeferredAction(sourcePlayerID: playerID, card: card)
+          DeferredAction(sourcePlayerID: progress.playerID, card: card)
         )
       case .roundEnded:
         state.deck.discard(
-          contentsOf: (decision.queuedActions + deferredActions).map(\.card)
+          contentsOf: (queuedActions + deferredActions).map(\.card)
         )
         return
       case .paused:
-        throw GameRuleError.commandNotAllowed
+        return
       }
-      if player(at: playerID).status != .active {
+      if player(at: progress.playerID).status != .active {
         state.deck.discard(contentsOf: deferredActions.map(\.card))
         try continueActionResolution(
-          continuation: decision.continuation,
-          queuedActions: decision.queuedActions,
+          continuation: continuation,
+          queuedActions: queuedActions,
           using: &generator,
           events: &events
         )
@@ -285,8 +326,8 @@ public struct GameEngine: Equatable, Codable, Sendable {
     }
 
     try continueActionResolution(
-      continuation: decision.continuation,
-      queuedActions: decision.queuedActions + deferredActions,
+      continuation: continuation,
+      queuedActions: queuedActions + deferredActions,
       using: &generator,
       events: &events
     )
@@ -295,9 +336,28 @@ public struct GameEngine: Equatable, Codable, Sendable {
   private mutating func continueActionResolution<R: RandomNumberGenerator>(
     continuation: ActionContinuation,
     queuedActions: [DeferredAction],
+    forcedDraw: ForcedDrawProgress? = nil,
     using generator: inout R,
     events: inout [GameEvent]
   ) throws {
+    if state.activePlayerIDs.isEmpty {
+      let forcedActions = forcedDraw?.deferredActions ?? []
+      state.deck.discard(contentsOf: (queuedActions + forcedActions).map(\.card))
+      finishRound(reason: .allPlayersInactive, events: &events)
+      return
+    }
+
+    if let forcedDraw {
+      try continueFlipThree(
+        forcedDraw,
+        continuation: continuation,
+        queuedActions: queuedActions,
+        using: &generator,
+        events: &events
+      )
+      return
+    }
+
     guard let nextAction = queuedActions.first else {
       try resume(continuation, using: &generator, events: &events)
       return
@@ -308,6 +368,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
       card: nextAction.card,
       legalTargetIDs: state.activePlayerIDs,
       queuedActions: Array(queuedActions.dropFirst()),
+      forcedDraw: nil,
       continuation: continuation
     )
     state.phase = .awaitingAction(decision)
@@ -317,6 +378,8 @@ public struct GameEngine: Equatable, Codable, Sendable {
   private mutating func drawCard<R: RandomNumberGenerator>(
     for playerID: PlayerID,
     continuation: ActionContinuation,
+    queuedActions: [DeferredAction] = [],
+    forcedDraw: ForcedDrawProgress? = nil,
     deferringTargetedActions: Bool = false,
     using generator: inout R,
     events: inout [GameEvent]
@@ -356,28 +419,27 @@ public struct GameEngine: Equatable, Codable, Sendable {
       if deferringTargetedActions, action != .secondChance {
         return .deferredAction(card)
       }
-      if action == .secondChance,
-        !state.players.contains(where: { player in
-          player.status == .active && player.secondChance == nil
-        })
-      {
-        state.deck.discard(card)
-        return .resolved
-      }
-
       let legalTargetIDs: [PlayerID]
       switch action {
       case .freeze, .flipThree:
         legalTargetIDs = state.activePlayerIDs
       case .secondChance:
-        legalTargetIDs = []
+        legalTargetIDs = state.players.compactMap { player in
+          player.status == .active && player.secondChance == nil ? player.id : nil
+        }
+      }
+
+      if legalTargetIDs.isEmpty {
+        state.deck.discard(card)
+        return .resolved
       }
 
       let decision = PendingActionDecision(
         sourcePlayerID: playerID,
         card: card,
         legalTargetIDs: legalTargetIDs,
-        queuedActions: [],
+        queuedActions: queuedActions,
+        forcedDraw: forcedDraw,
         continuation: continuation
       )
       state.phase = .awaitingAction(decision)
