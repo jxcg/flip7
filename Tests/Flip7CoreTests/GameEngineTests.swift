@@ -557,6 +557,111 @@ func deferredActionsResolveInRevealOrder() throws {
   #expect(engine.state.phase == .awaitingTurn(player(1)))
 }
 
+@Test(
+  "A bust discards actions deferred during Flip Three",
+  arguments: [ActionCard.freeze, .flipThree]
+)
+func deferredActionsAreDiscardedOnBust(_ deferredAction: ActionCard) throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .number(.one),
+      .number(.two),
+      .number(.five),
+      .action(.flipThree),
+      .action(deferredAction),
+      .number(.five),
+      .number(.six),
+    ])
+  )
+  try engine.send(.startRound)
+  try engine.send(.hit(player(1)))
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a pending Flip Three decision")
+    return
+  }
+  guard let events = resolveAction(decision, on: player(0), in: &engine) else {
+    return
+  }
+
+  #expect(drawnPlayerIDs(in: events) == [player(0), player(0)])
+  #expect(engine.state.deck.discardPile.map(\.id) == [CardID(rawValue: 4)])
+  #expect(engine.state.deck.remainingCount == 1)
+  #expect(engine.state.players[0].status == .busted)
+  #expect(
+    engine.state.players.allSatisfy { player in
+      !player.roundCards.cards.contains { $0.id == CardID(rawValue: 4) }
+    }
+  )
+  #expect(
+    !events.contains { event in
+      if case .actionRequiresResolution = event { true } else { false }
+    }
+  )
+  #expect(engine.state.phase == .awaitingTurn(player(2)))
+}
+
+@Test(
+  "Flip Seven discards actions deferred during Flip Three",
+  arguments: [ActionCard.freeze, .flipThree]
+)
+func deferredActionsAreDiscardedOnFlipSeven(_ deferredAction: ActionCard) throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .number(.one),
+      .number(.ten),
+      .number(.eleven),
+      .number(.two),
+      .number(.three),
+      .number(.four),
+      .number(.five),
+      .number(.six),
+      .action(.flipThree),
+      .action(deferredAction),
+      .number(.seven),
+      .number(.eight),
+    ])
+  )
+  try engine.send(.startRound)
+  try engine.send(.hit(player(1)))
+  try engine.send(.stay(player(2)))
+  try engine.send(.stay(player(0)))
+  try engine.send(.hit(player(1)))
+  try engine.send(.hit(player(1)))
+  try engine.send(.hit(player(1)))
+  try engine.send(.hit(player(1)))
+  try engine.send(.hit(player(1)))
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a pending Flip Three decision")
+    return
+  }
+  guard let events = resolveAction(decision, on: player(1), in: &engine) else {
+    return
+  }
+
+  #expect(drawnPlayerIDs(in: events) == [player(1), player(1)])
+  #expect(engine.state.deck.discardPile.map(\.id) == [CardID(rawValue: 9)])
+  #expect(engine.state.deck.remainingCount == 1)
+  #expect(
+    engine.state.players.allSatisfy { player in
+      !player.roundCards.cards.contains { $0.id == CardID(rawValue: 9) }
+    }
+  )
+  #expect(
+    !events.contains { event in
+      if case .actionRequiresResolution = event { true } else { false }
+    }
+  )
+  guard case .roundComplete(let summary) = engine.state.phase else {
+    Issue.record("Expected Flip Seven to complete the round")
+    return
+  }
+  #expect(summary.reason == .flipSeven(player(1)))
+}
+
 @Test("Seven unique numbers end the round and bank every eligible score")
 func flipSevenEndsRound() throws {
   var engine = try GameEngine(
