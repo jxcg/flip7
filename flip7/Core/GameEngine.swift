@@ -546,8 +546,8 @@ public struct GameEngine: Equatable, Codable, Sendable {
     events.append(.roundEnded(summary))
 
     let winningScore = state.players.map(\.bankedScore).max() ?? 0
-    if winningScore >= Ruleset.targetScore {
-      let winnerIDs = state.players.filter { $0.bankedScore == winningScore }.map(\.id)
+    let winnerIDs = state.players.filter { $0.bankedScore == winningScore }.map(\.id)
+    if winningScore >= Ruleset.targetScore, winnerIDs.count == 1 {
       let result = GameResult(
         finalRound: summary,
         winnerIDs: winnerIDs,
