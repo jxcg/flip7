@@ -147,8 +147,20 @@ public struct GameEngine: Equatable, Codable, Sendable {
       events.append(.playerStayed(expectedPlayerID))
       advanceTurn(after: expectedPlayerID, events: &events)
 
-    case .chooseActionTarget:
-      throw GameRuleError.commandNotAllowed
+    case .chooseActionTarget(let cardID, let targetPlayerID):
+      guard case .awaitingAction(let decision) = state.phase,
+        decision.card.id == cardID,
+        decision.legalTargetIDs.contains(targetPlayerID),
+        case .action(.freeze) = decision.card.kind,
+        case .openingDeal(let nextOffset) = decision.continuation
+      else {
+        throw GameRuleError.commandNotAllowed
+      }
+      append(decision.card, to: targetPlayerID)
+      updatePlayer(targetPlayerID) { player in
+        player.status = .frozen
+      }
+      try continueOpeningDeal(from: nextOffset, using: &generator, events: &events)
     }
   }
 
@@ -173,9 +185,13 @@ public struct GameEngine: Equatable, Codable, Sendable {
     let order = turnOrder
 
     for offset in startingOffset..<order.count {
+      let playerID = order[offset]
+      guard player(at: playerID).status == .active else {
+        continue
+      }
       state.phase = .dealingOpeningCards(nextOffset: offset)
       let resolution = try drawCard(
-        for: order[offset],
+        for: playerID,
         continuation: .openingDeal(nextOffset: offset + 1),
         using: &generator,
         events: &events
