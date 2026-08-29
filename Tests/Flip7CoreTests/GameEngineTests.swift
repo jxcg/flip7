@@ -460,6 +460,48 @@ func flipThreeStopsOnFlipSeven() throws {
   #expect(summary.reason == .flipSeven(player(1)))
 }
 
+@Test(
+  "Flip Three finishes its draws before resolving another action",
+  arguments: [ActionCard.freeze, .flipThree]
+)
+func deferredActionWaitsForFlipThreeDraws(_ deferredAction: ActionCard) throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(.flipThree),
+      .action(deferredAction),
+      .number(.one),
+      .number(.two),
+      .number(.three),
+      .number(.four),
+    ])
+  )
+  try engine.send(.startRound)
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a pending Flip Three decision")
+    return
+  }
+  guard let events = resolveAction(decision, on: player(0), in: &engine) else {
+    return
+  }
+
+  #expect(drawnPlayerIDs(in: events) == [player(0), player(0), player(0)])
+  guard case .awaitingAction(let deferredDecision) = engine.state.phase else {
+    Issue.record("Expected the deferred action decision")
+    return
+  }
+  #expect(deferredDecision.sourcePlayerID == player(0))
+  #expect(deferredDecision.card.id == CardID(rawValue: 1))
+  #expect(
+    engine.state.players.allSatisfy { player in
+      !player.roundCards.cards.contains { $0.id == deferredDecision.card.id }
+    }
+  )
+  #expect(events.last == .actionRequiresResolution(deferredDecision))
+  #expect(engine.state.deck.remainingCount == 2)
+}
+
 @Test("Seven unique numbers end the round and bank every eligible score")
 func flipSevenEndsRound() throws {
   var engine = try GameEngine(
