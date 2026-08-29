@@ -151,15 +151,28 @@ public struct GameEngine: Equatable, Codable, Sendable {
       guard case .awaitingAction(let decision) = state.phase,
         decision.card.id == cardID,
         decision.legalTargetIDs.contains(targetPlayerID),
-        case .action(.freeze) = decision.card.kind
+        case .action(let action) = decision.card.kind
       else {
         throw GameRuleError.commandNotAllowed
       }
-      append(decision.card, to: targetPlayerID)
-      updatePlayer(targetPlayerID) { player in
-        player.status = .frozen
+
+      switch action {
+      case .freeze:
+        append(decision.card, to: targetPlayerID)
+        updatePlayer(targetPlayerID) { player in
+          player.status = .frozen
+        }
+        try resume(decision.continuation, using: &generator, events: &events)
+      case .flipThree:
+        try resolveFlipThree(
+          decision,
+          for: targetPlayerID,
+          using: &generator,
+          events: &events
+        )
+      case .secondChance:
+        throw GameRuleError.commandNotAllowed
       }
-      try resume(decision.continuation, using: &generator, events: &events)
     }
   }
 
@@ -220,6 +233,35 @@ public struct GameEngine: Equatable, Codable, Sendable {
     case .advanceTurn(let playerID):
       advanceTurn(after: playerID, events: &events)
     }
+  }
+
+  private mutating func resolveFlipThree<R: RandomNumberGenerator>(
+    _ decision: PendingActionDecision,
+    for playerID: PlayerID,
+    using generator: inout R,
+    events: inout [GameEvent]
+  ) throws {
+    append(decision.card, to: playerID)
+
+    for _ in 0..<3 {
+      let resolution = try drawCard(
+        for: playerID,
+        continuation: decision.continuation,
+        using: &generator,
+        events: &events
+      )
+      if resolution == .roundEnded {
+        return
+      }
+      guard resolution == .resolved else {
+        throw GameRuleError.commandNotAllowed
+      }
+      if player(at: playerID).status != .active {
+        break
+      }
+    }
+
+    try resume(decision.continuation, using: &generator, events: &events)
   }
 
   private mutating func drawCard<R: RandomNumberGenerator>(
