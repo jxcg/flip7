@@ -151,8 +151,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
       guard case .awaitingAction(let decision) = state.phase,
         decision.card.id == cardID,
         decision.legalTargetIDs.contains(targetPlayerID),
-        case .action(.freeze) = decision.card.kind,
-        case .openingDeal(let nextOffset) = decision.continuation
+        case .action(.freeze) = decision.card.kind
       else {
         throw GameRuleError.commandNotAllowed
       }
@@ -160,7 +159,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
       updatePlayer(targetPlayerID) { player in
         player.status = .frozen
       }
-      try continueOpeningDeal(from: nextOffset, using: &generator, events: &events)
+      try resume(decision.continuation, using: &generator, events: &events)
     }
   }
 
@@ -208,6 +207,19 @@ public struct GameEngine: Equatable, Codable, Sendable {
       return
     }
     state.phase = .awaitingTurn(firstPlayerID)
+  }
+
+  private mutating func resume<R: RandomNumberGenerator>(
+    _ continuation: ActionContinuation,
+    using generator: inout R,
+    events: inout [GameEvent]
+  ) throws {
+    switch continuation {
+    case .openingDeal(let nextOffset):
+      try continueOpeningDeal(from: nextOffset, using: &generator, events: &events)
+    case .advanceTurn(let playerID):
+      advanceTurn(after: playerID, events: &events)
+    }
   }
 
   private mutating func drawCard<R: RandomNumberGenerator>(
