@@ -601,8 +601,8 @@ func deferredActionWaitsForFlipThreeDraws(_ deferredAction: ActionCard) throws {
   #expect(engine.state.deck.remainingCount == 2)
 }
 
-@Test("Deferred actions resolve in reveal order")
-func deferredActionsResolveInRevealOrder() throws {
+@Test("An inactive source assigns deferred actions in reveal order")
+func inactiveSourceAssignsDeferredActionsInRevealOrder() throws {
   var engine = try GameEngine(
     playerNames: testNames,
     deck: testDeck([
@@ -634,7 +634,13 @@ func deferredActionsResolveInRevealOrder() throws {
   #expect(freezeDecision.sourcePlayerID == player(0))
   #expect(freezeDecision.card.id == CardID(rawValue: 1))
 
-  guard resolveAction(freezeDecision, on: player(2), in: &engine) != nil else {
+  let unresolvedState = engine.state
+  expectGameError(.commandNotAllowed) {
+    try engine.send(.stay(player(0)))
+  }
+  #expect(engine.state == unresolvedState)
+
+  guard resolveAction(freezeDecision, on: player(0), in: &engine) != nil else {
     return
   }
   guard case .awaitingAction(let innerDecision) = engine.state.phase else {
@@ -643,17 +649,71 @@ func deferredActionsResolveInRevealOrder() throws {
   }
   #expect(innerDecision.sourcePlayerID == player(0))
   #expect(innerDecision.card.id == CardID(rawValue: 2))
-  #expect(innerDecision.legalTargetIDs == [player(0), player(1)])
+  #expect(innerDecision.legalTargetIDs == [player(1), player(2)])
 
   guard let innerEvents = resolveAction(innerDecision, on: player(1), in: &engine) else {
     return
   }
   #expect(
     drawnPlayerIDs(in: innerEvents)
-      == [player(1), player(1), player(1), player(0)]
+      == [player(1), player(1), player(1), player(2)]
   )
-  #expect(engine.state.players[2].status == .frozen)
+  #expect(engine.state.players[0].status == .frozen)
   #expect(engine.state.phase == .awaitingTurn(player(1)))
+}
+
+@Test("Freezing the final active source discards its remaining queue")
+func finalActiveSourceDiscardsRemainingQueue() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .number(.one),
+      .number(.two),
+      .number(.three),
+      .action(.flipThree),
+      .action(.freeze),
+      .action(.flipThree),
+      .number(.four),
+    ])
+  )
+  try engine.send(.startRound)
+  try engine.send(.stay(player(1)))
+  try engine.send(.stay(player(2)))
+
+  try engine.send(.hit(player(0)))
+  guard case .awaitingAction(let flipThreeDecision) = engine.state.phase else {
+    Issue.record("Expected a Flip Three decision")
+    return
+  }
+  guard resolveAction(flipThreeDecision, on: player(0), in: &engine) != nil else {
+    return
+  }
+  guard case .awaitingAction(let freezeDecision) = engine.state.phase else {
+    Issue.record("Expected the queued Freeze decision")
+    return
+  }
+
+  guard let events = resolveAction(freezeDecision, on: player(0), in: &engine) else {
+    return
+  }
+
+  #expect(engine.state.deck.discardPile.map(\.id) == [CardID(rawValue: 5)])
+  #expect(
+    engine.state.players.allSatisfy { player in
+      !player.roundCards.cards.contains { $0.id == CardID(rawValue: 5) }
+    }
+  )
+  #expect(
+    !events.contains { event in
+      if case .actionRequiresResolution = event { true } else { false }
+    }
+  )
+  guard case .roundComplete(let summary) = engine.state.phase else {
+    Issue.record("Expected the round to finish")
+    return
+  }
+  #expect(summary.reason == .allPlayersInactive)
+  #expect(events.last == .roundEnded(summary))
 }
 
 @Test(
