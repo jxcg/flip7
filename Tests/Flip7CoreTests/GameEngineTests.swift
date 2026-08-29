@@ -502,6 +502,61 @@ func deferredActionWaitsForFlipThreeDraws(_ deferredAction: ActionCard) throws {
   #expect(engine.state.deck.remainingCount == 2)
 }
 
+@Test("Deferred actions resolve in reveal order")
+func deferredActionsResolveInRevealOrder() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .action(.flipThree),
+      .action(.freeze),
+      .action(.flipThree),
+      .number(.one),
+      .number(.two),
+      .number(.three),
+      .number(.four),
+      .number(.five),
+    ])
+  )
+  try engine.send(.startRound)
+
+  guard case .awaitingAction(let outerDecision) = engine.state.phase else {
+    Issue.record("Expected the first Flip Three decision")
+    return
+  }
+  guard let outerEvents = resolveAction(outerDecision, on: player(0), in: &engine) else {
+    return
+  }
+
+  #expect(drawnPlayerIDs(in: outerEvents) == [player(0), player(0), player(0)])
+  guard case .awaitingAction(let freezeDecision) = engine.state.phase else {
+    Issue.record("Expected the deferred Freeze decision")
+    return
+  }
+  #expect(freezeDecision.sourcePlayerID == player(0))
+  #expect(freezeDecision.card.id == CardID(rawValue: 1))
+
+  guard resolveAction(freezeDecision, on: player(2), in: &engine) != nil else {
+    return
+  }
+  guard case .awaitingAction(let innerDecision) = engine.state.phase else {
+    Issue.record("Expected the deferred Flip Three decision")
+    return
+  }
+  #expect(innerDecision.sourcePlayerID == player(0))
+  #expect(innerDecision.card.id == CardID(rawValue: 2))
+  #expect(innerDecision.legalTargetIDs == [player(0), player(1)])
+
+  guard let innerEvents = resolveAction(innerDecision, on: player(1), in: &engine) else {
+    return
+  }
+  #expect(
+    drawnPlayerIDs(in: innerEvents)
+      == [player(1), player(1), player(1), player(0)]
+  )
+  #expect(engine.state.players[2].status == .frozen)
+  #expect(engine.state.phase == .awaitingTurn(player(1)))
+}
+
 @Test("Seven unique numbers end the round and bank every eligible score")
 func flipSevenEndsRound() throws {
   var engine = try GameEngine(
