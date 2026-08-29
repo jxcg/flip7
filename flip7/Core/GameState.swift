@@ -70,9 +70,23 @@ public enum ActionContinuation: Equatable, Codable, Sendable {
   case advanceTurn(after: PlayerID)
 }
 
+struct DeferredAction: Equatable, Codable, Sendable {
+  let sourcePlayerID: PlayerID
+  let card: GameCard
+}
+
+struct ForcedDrawProgress: Equatable, Codable, Sendable {
+  let playerID: PlayerID
+  let remainingDrawCount: Int
+  let deferredActions: [DeferredAction]
+}
+
 public struct PendingActionDecision: Equatable, Codable, Sendable {
   public let sourcePlayerID: PlayerID
   public let card: GameCard
+  public let legalTargetIDs: [PlayerID]
+  let queuedActions: [DeferredAction]
+  let forcedDraw: ForcedDrawProgress?
   public let continuation: ActionContinuation
 }
 
@@ -110,6 +124,7 @@ public enum GameCommand: Equatable, Codable, Sendable {
   case hit(PlayerID)
   case stay(PlayerID)
   case startNextRound
+  case chooseActionTarget(cardID: CardID, targetPlayerID: PlayerID)
 }
 
 public enum GameEvent: Equatable, Codable, Sendable {
