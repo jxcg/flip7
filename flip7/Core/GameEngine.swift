@@ -242,23 +242,44 @@ public struct GameEngine: Equatable, Codable, Sendable {
     events: inout [GameEvent]
   ) throws {
     append(decision.card, to: playerID)
+    var deferredAction: GameCard?
 
     for _ in 0..<3 {
       let resolution = try drawCard(
         for: playerID,
         continuation: decision.continuation,
+        deferringTargetedActions: true,
         using: &generator,
         events: &events
       )
-      if resolution == .roundEnded {
+      switch resolution {
+      case .resolved:
+        break
+      case .deferredAction(let card):
+        guard deferredAction == nil else {
+          throw GameRuleError.commandNotAllowed
+        }
+        deferredAction = card
+      case .roundEnded:
         return
-      }
-      guard resolution == .resolved else {
+      case .paused:
         throw GameRuleError.commandNotAllowed
       }
       if player(at: playerID).status != .active {
         break
       }
+    }
+
+    if let deferredAction {
+      let deferredDecision = PendingActionDecision(
+        sourcePlayerID: playerID,
+        card: deferredAction,
+        legalTargetIDs: state.activePlayerIDs,
+        continuation: decision.continuation
+      )
+      state.phase = .awaitingAction(deferredDecision)
+      events.append(.actionRequiresResolution(deferredDecision))
+      return
     }
 
     try resume(decision.continuation, using: &generator, events: &events)
@@ -267,6 +288,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
   private mutating func drawCard<R: RandomNumberGenerator>(
     for playerID: PlayerID,
     continuation: ActionContinuation,
+    deferringTargetedActions: Bool = false,
     using generator: inout R,
     events: inout [GameEvent]
   ) throws -> DrawResolution {
@@ -302,6 +324,9 @@ public struct GameEngine: Equatable, Codable, Sendable {
       return .resolved
 
     case .action(let action):
+      if deferringTargetedActions, action != .secondChance {
+        return .deferredAction(card)
+      }
       if action == .secondChance,
         !state.players.contains(where: { player in
           player.status == .active && player.secondChance == nil
@@ -513,4 +538,5 @@ private enum DrawResolution: Equatable {
   case resolved
   case paused
   case roundEnded
+  case deferredAction(GameCard)
 }
