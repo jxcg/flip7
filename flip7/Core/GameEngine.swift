@@ -265,12 +265,22 @@ public struct GameEngine: Equatable, Codable, Sendable {
           DeferredAction(sourcePlayerID: playerID, card: card)
         )
       case .roundEnded:
+        state.deck.discard(
+          contentsOf: (decision.queuedActions + deferredActions).map(\.card)
+        )
         return
       case .paused:
         throw GameRuleError.commandNotAllowed
       }
       if player(at: playerID).status != .active {
-        break
+        state.deck.discard(contentsOf: deferredActions.map(\.card))
+        try continueActionResolution(
+          continuation: decision.continuation,
+          queuedActions: decision.queuedActions,
+          using: &generator,
+          events: &events
+        )
+        return
       }
     }
 
