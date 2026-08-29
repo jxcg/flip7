@@ -269,6 +269,56 @@ func freezeDuringOpeningDeal() throws {
   #expect(engine.state.phase == .awaitingTurn(player(1)))
 }
 
+@Test("Freeze banks its target and resumes after the source player")
+func freezeDuringTurn() throws {
+  var engine = try GameEngine(
+    playerNames: testNames,
+    deck: testDeck([
+      .number(.one),
+      .number(.two),
+      .number(.three),
+      .action(.freeze),
+    ])
+  )
+  try engine.send(.startRound)
+  try engine.send(.hit(player(1)))
+
+  guard case .awaitingAction(let decision) = engine.state.phase else {
+    Issue.record("Expected a pending Freeze decision")
+    return
+  }
+
+  let resolutionError: GameRuleError?
+  do {
+    try engine.send(
+      .chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: player(2)
+      )
+    )
+    resolutionError = nil
+  } catch let error as GameRuleError {
+    resolutionError = error
+  }
+
+  #expect(resolutionError == nil)
+  guard resolutionError == nil else {
+    return
+  }
+  #expect(engine.state.players[2].status == .frozen)
+  #expect(engine.state.players[2].roundCards.cards.last == decision.card)
+  #expect(engine.state.phase == .awaitingTurn(player(0)))
+
+  try engine.send(.stay(player(0)))
+  try engine.send(.stay(player(1)))
+
+  guard case .roundComplete = engine.state.phase else {
+    Issue.record("Expected a completed round")
+    return
+  }
+  #expect(engine.state.players[2].bankedScore == 2)
+}
+
 @Test("Seven unique numbers end the round and bank every eligible score")
 func flipSevenEndsRound() throws {
   var engine = try GameEngine(
