@@ -8,9 +8,9 @@ The rules aren't tied to one interface or platform.
 
 The current app is built natively with SwiftUI for iPhone and iPad. It supports iOS and iPadOS 18.0 or newer.
 
-The repository and internal code names remain `flip7` and `Flip7Core` unless separately approved. Before public release, the public-facing app identity will receive an original name while keeping the same gameplay mechanics.
+The repository and internal code names remain `flip7` and `Flip7Core` unless separately approved. The final app name will be chosen during release work while keeping the same gameplay mechanics.
 
-The interface, artwork, card faces, logo, packaging, and wording will be original. Commercial assets and copy will not be used. Public distribution remains blocked until the final name and release clearance are recorded.
+The interface, artwork, card faces, logo, packaging, and wording will be original. Commercial assets and copy will not be used.
 
 ## Build and test
 
