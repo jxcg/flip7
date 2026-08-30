@@ -65,8 +65,8 @@ private struct NewGameView: View {
                 Text(
                     "Draw number cards to build your score. Stay to leave the "
                         + "round safely. A repeated number can bust you unless "
-                        + "Second Chance saves you. After each round, the first "
-                        + "unique leader at \(Ruleset.targetScore) points wins."
+                        + "Second Chance saves you. After a round, a unique "
+                        + "leader with at least \(Ruleset.targetScore) points wins."
                 )
             }
 
@@ -83,7 +83,7 @@ private struct NewGameView: View {
 }
 
 private struct PlayerHandoffView: View {
-    @Bindable var session: GameSession
+    let session: GameSession
 
     var body: some View {
         ScrollView {
@@ -126,17 +126,14 @@ private struct GameReadyView: View {
     let hide: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Text("\(playerName)'s turn")
-                    .font(.title)
-                Text("The game session is ready.")
-                Button("Hide", action: hide)
-                    .frame(minHeight: 44)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
+        VStack(spacing: 16) {
+            Text("\(playerName)'s turn")
+                .font(.title)
+            Text("The game session is ready.")
+            Button("Hide", action: hide)
+                .frame(minHeight: 44)
         }
+        .frame(maxWidth: .infinity)
         .navigationTitle("Game")
     }
 }
