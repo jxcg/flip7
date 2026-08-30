@@ -22,6 +22,8 @@
 - Record material decisions and test evidence in the issue or pull request before moving on. If product intent or a rule is unclear, ask the human owner in the issue instead of guessing.
 - Use a human-readable development stage such as `First Prototype` only when naming the stage adds useful context.
 - Never commit secrets, private data, personal developer state, signing material, private configuration, or unrequired generated artifacts. If a suspected secret is found, do not display its value; report only its type and location, stop, and ask the owner to rotate it. Inspect staged files before every commit and push.
-- Do not copy commercial Flip 7 artwork, logos, or other protected assets.
-- Do not publish under the Flip 7 name until the owner confirms trademark/licensing rights.
+- Treat `Flip7` as the private repository working title. Keep repository, package, and source names unchanged unless separately approved.
+- Do not publish under the Flip 7 name. Rename only the public-facing app identity and keep the approved gameplay mechanics.
+- Never use commercial Flip 7 artwork, card faces, logos, packaging, or copy. Keep the interface and wording original.
+- Before public distribution, record the final name and release clearance in the relevant issue.
 - Run the repository's documented full test command and signing-free app build on the final pre-PR commit, and again after any later product-code change.

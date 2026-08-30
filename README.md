@@ -1,6 +1,6 @@
 # Flip7
 
-Flip7 is a digital press-your-luck card game. Draw cards to build your score, then choose whether to stay or risk another draw.
+`Flip7` is the private working title for a digital press-your-luck card game. Draw cards to build your score, then choose whether to stay or risk another draw.
 
 The rules aren't tied to one interface or platform.
 
@@ -8,9 +8,9 @@ The rules aren't tied to one interface or platform.
 
 The current app is built natively with SwiftUI for iPhone and iPad. It supports iOS and iPadOS 18.0 or newer.
 
-The interface and artwork must be original.
+The repository and internal code names remain `flip7` and `Flip7Core` unless separately approved. Before public release, the public-facing app identity will receive an original name while keeping the same gameplay mechanics.
 
-Do not publicly distribute the app under the Flip 7 name until the owner confirms the required trademark and licensing rights.
+The interface, artwork, card faces, logo, packaging, and wording will be original. Commercial assets and copy will not be used. Public distribution remains blocked until the final name and release clearance are recorded.
 
 ## Build and test
 

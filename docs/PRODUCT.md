@@ -6,11 +6,16 @@ Deliver a polished, complete native iOS game that implements the full approved r
 
 ## Product foundation
 
-- Local pass-and-play on one iPhone or iPad is the first planned mode, not a ceiling on the complete product.
+- Local pass-and-play and computer opponents are required for the first release.
+- Nearby-device play will be studied without a hosted server when two owner-approved physical devices are available. Shipping it remains a later decision based on that evidence.
+- Private internet games and public matchmaking are scheduled later and do not block the first release.
 - A complete base game will support 3–9 named players.
 - The rules implementation will cover the approved 94-card deck: number cards, score modifiers, Freeze, Flip Three, and Second Chance.
 - The app will own dealing, legal choices, action targeting, scoring, round transitions, and victory detection.
-- The interface will be original and will not reproduce the commercial product's card faces, logo, packaging, or copy.
+- `Flip7` is the private repository working title. The repository and internal code names remain unchanged unless separately approved.
+- Before public release, the public-facing app identity will receive an original name while keeping the same gameplay mechanics.
+- The interface, artwork, card faces, logo, packaging, and wording must be original. Commercial assets and copy will not be used.
+- Public distribution remains blocked until the final name and release clearance are recorded.
 - Issue #19 records owner decisions for the complete set of play modes, product identity, settings, continuity features, languages, privacy behavior, and distribution requirements.
 
 The rules engine remains independent of SwiftUI, device handoff, computer opponents, and networking so every approved mode can share one deterministic rules implementation.
@@ -48,7 +53,7 @@ The first release is complete only when:
 
 1. Choose the authoritative rules edition.
 2. Choose local, computer-opponent, private-online, and public-matchmaking modes.
-3. Confirm whether this is a licensed product or requires an original public name and presentation.
+3. Choose the final original public name and confirm its release clearance.
 4. Choose sound, haptics, settings, tutorial, reusable rosters, history, and statistics.
 5. Choose supported devices, orientations, languages, and cloud continuity.
 6. Choose privacy, analytics, advertising, purchases, support, beta, and public-distribution requirements.
