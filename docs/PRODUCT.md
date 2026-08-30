@@ -6,12 +6,16 @@ Deliver a polished, complete native iOS game that implements the full approved r
 
 ## Product foundation
 
-- Local pass-and-play on one iPhone or iPad is the first planned mode, not a ceiling on the complete product.
+- Local pass-and-play and computer opponents are required for the first release.
+- Nearby-device play will be studied without a hosted server when two owner-approved physical devices are available. Shipping it remains a later decision based on that evidence.
+- Private internet games and public matchmaking are scheduled later and do not block the first release.
 - A complete base game will support 3–9 named players.
 - The rules implementation will cover the approved 94-card deck: number cards, score modifiers, Freeze, Flip Three, and Second Chance.
 - The app will own dealing, legal choices, action targeting, scoring, round transitions, and victory detection.
-- The interface will be original and will not reproduce the commercial product's card faces, logo, packaging, or copy.
-- Issue #19 records owner decisions for the complete set of play modes, product identity, settings, continuity features, languages, privacy behavior, and distribution requirements.
+- `Flip7` is the private repository working title. The repository and internal code names remain unchanged unless separately approved.
+- The final app name is deferred to release work in issue #10. The gameplay mechanics remain unchanged.
+- The interface, artwork, card faces, logo, packaging, and wording must be original. Commercial assets and copy will not be used.
+- Issue #19 records application and product choices. Issue #10 owns final app naming and release execution.
 
 The rules engine remains independent of SwiftUI, device handoff, computer opponents, and networking so every approved mode can share one deterministic rules implementation.
 
@@ -42,13 +46,9 @@ The first release is complete only when:
 7. Every flow meets its VoiceOver, Dynamic Type, non-color cue, contrast, transparency, and motion requirements.
 8. Rematches preserve the approved player and game configuration.
 9. Measurable correctness, performance, memory, energy, privacy, and accessibility gates pass.
-10. The approved private, beta, or public distribution path includes its required support, update, migration, and rollback evidence.
+10. Release checks include support, updates, migrations, and rollback evidence.
 
-## Decision areas recorded in issue #19
+## Decision ownership
 
-1. Choose the authoritative rules edition.
-2. Choose local, computer-opponent, private-online, and public-matchmaking modes.
-3. Confirm whether this is a licensed product or requires an original public name and presentation.
-4. Choose sound, haptics, settings, tutorial, reusable rosters, history, and statistics.
-5. Choose supported devices, orientations, languages, and cloud continuity.
-6. Choose privacy, analytics, advertising, purchases, support, beta, and public-distribution requirements.
+- Issue #19 owns rules authority, play modes, player experience, supported devices and languages, saving, cloud continuity, privacy, business, and external support.
+- Issue #10 owns final app naming, release execution, and clearance.
