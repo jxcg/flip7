@@ -144,7 +144,6 @@ final class GameSession {
       var engine = try makeEngine()
       let events = try engine.send(.startRound)
       self.engine = engine
-      setupError = nil
       commandError = nil
       let messages = events.compactMap { message(for: $0, in: engine.state) }
       if let actingPlayerID, !messages.isEmpty {
