@@ -53,14 +53,6 @@ func seededSessionCompletesGame() throws {
       let inputVersion = session.inputVersion
       if playerID == winnerID {
         session.hit(playerID, inputVersion: inputVersion)
-        if !checkedStaleInput {
-          let stateAfterHit = session.state
-          let outcomeAfterHit = session.turnOutcome
-          session.hit(playerID, inputVersion: inputVersion)
-          #expect(session.state == stateAfterHit)
-          #expect(session.turnOutcome == outcomeAfterHit)
-          checkedStaleInput = true
-        }
       } else {
         session.stay(playerID, inputVersion: inputVersion)
       }
@@ -68,11 +60,25 @@ func seededSessionCompletesGame() throws {
       session.startNextRound(inputVersion: session.inputVersion)
     case .awaitingAction(let decision):
       #expect(decision.card.kind == .action(.freeze))
+      let staleInputVersion = session.inputVersion
       session.chooseActionTarget(
         cardID: decision.card.id,
         targetPlayerID: frozenPlayerID,
-        inputVersion: session.inputVersion
+        inputVersion: staleInputVersion
       )
+      session.continueAfterOutcome()
+
+      let stateAfterAction = session.state
+      let inputVersionAfterAction = session.inputVersion
+      session.chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: frozenPlayerID,
+        inputVersion: staleInputVersion
+      )
+      #expect(session.state == stateAfterAction)
+      #expect(session.inputVersion == inputVersionAfterAction)
+      #expect(session.commandError == nil)
+      checkedStaleInput = true
       resolvedAction = true
     case .gameComplete(let result):
       #expect(result.winnerIDs == [winnerID])
