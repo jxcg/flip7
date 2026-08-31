@@ -102,7 +102,7 @@ struct GameTableView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         LazyHStack(spacing: 8) {
           ForEach(cards) { card in
-            CardView(card: card, isDrained: player.status == .busted)
+            CardView(card: card, state: cardState(for: player))
           }
         }
         .padding(.vertical, 4)
@@ -160,6 +160,14 @@ struct GameTableView: View {
     .accessibilityElement(children: .combine)
   }
 
+  private func cardState(for player: PlayerState) -> CardState {
+    switch player.status {
+    case .busted: .drained
+    case .frozen: .frosted
+    case .active, .stayed: .inHand
+    }
+  }
+
   private func hueDots(for player: PlayerState) -> some View {
     HStack(spacing: 3) {
       ForEach(player.roundCards.cards) { card in
@@ -205,7 +213,7 @@ struct GameTableView: View {
     .padding(.horizontal, 16)
     .padding(.top, 12)
     .padding(.bottom, 8)
-    .background(.regularMaterial)
+    .chromeSurface()
   }
 
   @ViewBuilder

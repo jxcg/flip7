@@ -10,14 +10,29 @@ import SwiftUI
 /// another. A number card is its numeral and nothing else; the numeral is the
 /// artwork. An action card inverts the surface so a Freeze can never scan as a
 /// number. A modifier is a third thing again, and should not look like either.
+/// How a card is reading right now.
+///
+/// States change how much colour a card has, never its hue. Thirteen values
+/// already consume nearly the whole wheel, so there is no free hue left to mean
+/// "busted" or "frozen".
+enum CardState {
+  case inHand
+  /// Busted, or a Second Chance spent. Drains to neutral; red lives on the
+  /// chrome, never on the card.
+  case drained
+  /// Frozen. Washes toward white with a hairline frost stroke.
+  case frosted
+}
+
 struct CardView: View {
   let card: GameCard
-  var isDrained = false
+  var state: CardState = .inHand
 
   /// The card grows with the numeral rather than clipping it, so Dynamic Type
   /// changes the card size and never the type ratio.
   @ScaledMetric(relativeTo: .largeTitle) private var numeralSize: Double = 44
   @Environment(\.legibilityWeight) private var legibilityWeight
+  @Environment(\.colorSchemeContrast) private var contrast
 
   private var height: Double { numeralSize * 2 }
   private var width: Double { height * 5 / 7 }
@@ -35,16 +50,49 @@ struct CardView: View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
           .strokeBorder(edge, style: edgeStyle)
       )
-      .saturation(isDrained ? 0 : 1)
+      .saturation(saturation)
+      .overlay(
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .fill(Color.white.opacity(state == .frosted ? 0.5 : 0))
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .strokeBorder(
+            Color.white.opacity(state == .frosted ? 0.7 : 0),
+            lineWidth: 1
+          )
+      )
       .accessibilityElement(children: .ignore)
-      .accessibilityLabel(isDrained ? "\(card.displayName), busted" : card.displayName)
+      .accessibilityLabel(accessibilityName)
+  }
+
+  private var saturation: Double {
+    switch state {
+    case .inHand: 1
+    case .drained: 0
+    case .frosted: 0.2
+    }
+  }
+
+  /// Meaning never depends on colour alone, so the state is spoken too.
+  private var accessibilityName: String {
+    switch state {
+    case .inHand: card.displayName
+    case .drained: "\(card.displayName), out of play"
+    case .frosted: "\(card.displayName), frozen"
+    }
   }
 
   @ViewBuilder
   private var face: some View {
     switch card.kind {
     case .number(let value):
-      numeral("\(value.rawValue)", tint: CardPalette.ink(for: value.rawValue))
+      // Under Increase Contrast the wash collapses, so the numeral takes the
+      // full-strength label colour and hue survives only in the edge and Rail.
+      numeral(
+        "\(value.rawValue)",
+        tint: contrast == .increased ? Color(.label) : CardPalette.ink(for: value.rawValue)
+      )
     case .scoreModifier(.additive(let bonus)):
       numeral("+\(bonus.rawValue)", tint: Color(.label))
     case .scoreModifier(.double):
@@ -91,7 +139,9 @@ struct CardView: View {
   private var surface: Color {
     switch card.kind {
     case .number(let value):
-      CardPalette.wash(for: value.rawValue)
+      contrast == .increased
+        ? Color(.secondarySystemGroupedBackground)
+        : CardPalette.wash(for: value.rawValue)
     case .scoreModifier:
       Color(.secondarySystemGroupedBackground)
     case .action:
@@ -114,7 +164,11 @@ struct CardView: View {
     case .number(let value):
       // Separation comes from this edge and the card's own shadow, never from
       // luminance: a wash sits close to the table on purpose.
-      CardPalette.rail(for: value.rawValue).opacity(legibilityWeight == .bold ? 1 : 0.35)
+      // Hue is never load-bearing, but it is the only thing left carrying value
+      // identity alongside the numeral once the wash collapses, so it goes to
+      // full strength rather than 35%.
+      CardPalette.rail(for: value.rawValue)
+        .opacity(contrast == .increased || legibilityWeight == .bold ? 1 : 0.35)
     case .scoreModifier:
       Color(.label).opacity(0.45)
     case .action:
