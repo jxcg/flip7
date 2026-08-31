@@ -22,6 +22,10 @@ final class GameSession {
     didSet { setupError = nil }
   }
   private(set) var humanPlayerID = PlayerID(rawValue: 0)
+  /// Sampled fresh per computer decision, so the table does not tick like a
+  /// metronome. Tests set both bounds to zero.
+  var turnDelayRange: ClosedRange<Duration> = .seconds(2)...(.seconds(4))
+  private(set) var opponentTask: Task<Void, Never>?
   private(set) var setupError: String?
   private(set) var commandError: String?
   private(set) var turnOutcome: TurnOutcome?
@@ -102,6 +106,7 @@ final class GameSession {
         turnOutcome = nil
       }
       inputVersion += 1
+      scheduleOpponentTurn()
       return true
     } catch let error as GameRuleError {
       setupError = message(for: error)
@@ -167,7 +172,33 @@ final class GameSession {
     return true
   }
 
+  /// Schedules the acting computer seat's turn after a pause, so a human can
+  /// follow what happened. One-shot: nothing loops, and the display returns to
+  /// rest between decisions.
+  private func scheduleOpponentTurn() {
+    opponentTask?.cancel()
+    opponentTask = nil
+    guard opponentCommandIfNeeded() != nil else {
+      return
+    }
+
+    let version = inputVersion
+    let low = turnDelayRange.lowerBound
+    let high = turnDelayRange.upperBound
+    let delay = low == high ? low : low + (high - low) * Double.random(in: 0...1)
+
+    opponentTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: delay)
+      guard !Task.isCancelled, let self, self.inputVersion == version else {
+        return
+      }
+      self.playOpponentTurnIfNeeded()
+    }
+  }
+
   func resetGame() {
+    opponentTask?.cancel()
+    opponentTask = nil
     engine = nil
     commandError = nil
     turnOutcome = nil
@@ -211,6 +242,7 @@ final class GameSession {
         }
         announceCurrentView()
       }
+      scheduleOpponentTurn()
     } catch {
       self.inputVersion += 1
       commandError = "That action is no longer available."
