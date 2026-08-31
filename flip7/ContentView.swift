@@ -6,26 +6,20 @@ struct ContentView: View {
   @State private var isShowingSession = false
 
   var body: some View {
-    Group {
-      if scenePhase == .active {
-        NavigationStack {
-          NewGameView(session: session) {
-            if session.start() {
-              isShowingSession = true
-            }
-          }
-          .navigationDestination(isPresented: $isShowingSession) {
-            PlayerHandoffView(session: session)
-          }
-          .onChange(of: isShowingSession) { _, isShowing in
-            if !isShowing {
-              session.resetGame()
-            }
-          }
+    NavigationStack {
+      NewGameView(session: session) {
+        if session.start() {
+          isShowingSession = true
         }
-      } else {
-        Text("Game Hidden")
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      }
+      .navigationDestination(isPresented: $isShowingSession) {
+        GameTableView(session: session)
+          .navigationTitle(session.needsHandoff ? "Pass the Device" : "Game")
+      }
+      .onChange(of: isShowingSession) { _, isShowing in
+        if !isShowing {
+          session.resetGame()
+        }
       }
     }
     .onChange(of: scenePhase) { _, phase in
@@ -94,42 +88,6 @@ private struct NewGameView: View {
     .onChange(of: session.setupError) { _, error in
       isSetupErrorFocused = error != nil
     }
-  }
-}
-
-private struct PlayerHandoffView: View {
-  let session: GameSession
-
-  var body: some View {
-    Group {
-      if session.needsHandoff {
-        ScrollView {
-          VStack(spacing: 16) {
-            if let playerName = session.presentedPlayerName {
-              Text("Pass the device to \(playerName)")
-                .font(.title)
-                .multilineTextAlignment(.center)
-
-              Text("Continue only when nobody else can see the screen.")
-                .multilineTextAlignment(.center)
-
-              Button("I'm \(playerName)") {
-                session.revealForCurrentPlayer()
-              }
-              .buttonStyle(.borderedProminent)
-              .frame(minHeight: 44)
-            } else {
-              Text("The game couldn't identify the next player.")
-            }
-          }
-          .frame(maxWidth: .infinity)
-          .padding()
-        }
-      } else {
-        GameTableView(session: session)
-      }
-    }
-    .navigationTitle(session.needsHandoff ? "Pass the Device" : "Game")
   }
 }
 

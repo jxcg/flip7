@@ -7,13 +7,20 @@ struct GameTableView: View {
   var body: some View {
     if let state = session.state {
       Form {
+        if session.needsHandoff, let playerName = session.presentedPlayerName {
+          handoff(playerName)
+        }
+
         gameStatus(state)
 
-        if let outcome = session.turnOutcome {
-          outcomeSection(outcome)
-        } else {
-          controls(for: state)
+        Group {
+          if let outcome = session.turnOutcome {
+            outcomeSection(outcome)
+          } else {
+            controls(for: state)
+          }
         }
+        .disabled(session.needsHandoff)
 
         players(state)
 
@@ -30,6 +37,17 @@ struct GameTableView: View {
       }
     } else {
       Text("The game isn't available.")
+    }
+  }
+
+  private func handoff(_ playerName: String) -> some View {
+    Section("Pass the Device") {
+      Text("\(playerName)'s turn")
+      Text("Confirm the next player before using the game controls.")
+      Button("I'm \(playerName)") {
+        session.revealForCurrentPlayer()
+      }
+      .frame(maxWidth: .infinity, minHeight: 44)
     }
   }
 
