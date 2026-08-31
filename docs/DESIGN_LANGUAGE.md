@@ -266,11 +266,19 @@ information rather than decoration.
 - Action bar sits in the thumb arc. Hit is `.glassProminent`; Stay is `.glass`.
   Hit is on the right because it is the repeated action.
 
-**Turn handoff.** Worth noting: Flip 7 has no hidden information — every card is
-face up. The handoff screen is a *turn gate*, not a privacy veil, and should not
-blank the table. `MVP.md` calls these "private player handoffs"; the honest design
-is a full-width sheet reading "Amara's turn" with a single "I'm Amara" button, the
-table dimmed but visible behind it. Flag this wording for the owner.
+**Turn handoff — removed.** The owner decided on 31 August 2026 that solo play
+against computer opponents is the only mode the interface offers for the first
+release, so there is no device to pass and no handoff screen to design. The
+reasoning that got here still holds and is worth keeping: Flip 7 has no hidden
+information, every card is face up, so a handoff was only ever a turn gate and
+never a privacy veil. That is what made it cheap to delete.
+
+**Open question — opponent rendering.** Opponents compress to hue dots below
+because pass-and-play meant nobody watched an opponent's turn; you handed the
+phone over and looked away. Solo play inverts that. You now watch every opponent
+turn at 2-4 seconds a decision, and the entire visible event is one more dot
+appearing. Either the pacing is not earning its delay or an acting opponent needs
+a richer representation than a resting one. This is unresolved and belongs to #6.
 
 ---
 
@@ -316,7 +324,7 @@ haptics and sound. SwiftUI stays a renderer, the core stays ignorant of all thre
 | `flipSeven` | `.success`, then `.impact(.heavy)` 120 ms later | *needs custom asset* | chroma bloom |
 | `roundEnded` | `.levelChange` | — | tally count-up |
 | `gameEnded` | `.success` | — | standings reveal |
-| turn handoff | `.selection` | — | sheet |
+| opponent turn begins | `.selection` | — | active-row cue, one shot |
 
 The two-beat on `flipSeven` (success, pause, heavy impact) is the only compound
 haptic in the app. It is the physical equivalent of the chroma bloom.
@@ -387,11 +395,16 @@ target.
 
 **The one absolute: an idle table renders zero frames.**
 
-Pass-and-play is mostly a human thinking. Any `repeatForever`, `TimelineView` or
-`Timer`-driven animation holds the display out of its idle low-refresh state for
-the entire think-time, and that one decision outweighs every other item here. It
-also costs the design nothing, because §1 already says the table is still between
-moments.
+A table awaiting human input is mostly a human thinking. Any `repeatForever`,
+`TimelineView` or `Timer`-driven animation holds the display out of its idle
+low-refresh state for the entire think-time, and that one decision outweighs
+every other item here. It also costs the design nothing, because §1 already says
+the table is still between moments.
+
+Paced computer turns do not weaken this rule. A computer turn is a sequence of
+one-shot animations separated by stillness, which §11 already permits; it is
+loops and ambient motion that are banned, not scheduled discrete events. What it
+does change is how the rule is *verified*, which gate 2 below now reflects.
 
 - Banned: `repeatForever`, `TimelineView` on the table, `Timer`-driven animation,
   ambient gradients, breathing glows.
@@ -441,7 +454,9 @@ table. The `FeedbackDirector` (§9) is event-driven off `GameEvent`; nothing pol
 issue that touches UI:
 
 1. Instruments **Animation Hitches** over a full 9-player round → zero hitches.
-2. Core Animation **FPS gauge** on an untouched table → **0 frames**.
+2. Core Animation **FPS gauge** on a table **awaiting human input** → **0 frames**.
+   Measure between decisions, not during a paced computer turn, which renders by
+   design.
 3. Instruments **Energy Log** → no sustained "High" impact while idle.
 4. Run on a real device at the iOS 18 floor (iPhone XR/11 class). The simulator
    hides GPU cost entirely, so a simulator-only pass proves nothing here.
