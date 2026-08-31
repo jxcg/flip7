@@ -21,7 +21,7 @@ Which seat a command comes from is an app-target concern. `Flip7Core` treats a s
 - An accepted command produces the next complete state and semantic events for presentation.
 - A pending choice, such as selecting an action-card target, is explicit state rather than an alert-only callback.
 - Saved games encode versioned engine state, never view hierarchy or animation state.
-- Randomness enters only through a shuffled deck supplied when a deck is created or recycled.
+- Randomness enters game state only through a shuffled deck supplied when a deck is created or recycled. The opponent policy also takes a generator, used solely to break ties between equally good targets. It never mutates state, and a seeded generator makes its choices reproducible.
 
 ## Quality gates
 

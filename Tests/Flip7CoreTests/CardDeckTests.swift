@@ -89,7 +89,9 @@ private func testCard(_ id: Int, _ kind: CardKind) -> GameCard {
   GameCard(id: CardID(rawValue: id), kind: kind)
 }
 
-private struct SeededGenerator: RandomNumberGenerator {
+/// Shared across the test target so the opponent policy tests can reproduce a
+/// run without declaring a second generator.
+struct SeededGenerator: RandomNumberGenerator {
   private var state: UInt64
 
   init(seed: UInt64) {
@@ -97,7 +99,13 @@ private struct SeededGenerator: RandomNumberGenerator {
   }
 
   mutating func next() -> UInt64 {
-    state = state &* 6_364_136_223_846_793_005 &+ 1
-    return state
+    // SplitMix64. The previous LCG returned its raw state, whose low bit
+    // alternates with period 2, so anything sampling small ranges measured the
+    // generator rather than the code under test.
+    state = state &+ 0x9E37_79B9_7F4A_7C15
+    var mixed = state
+    mixed = (mixed ^ (mixed >> 30)) &* 0xBF58_476D_1CE4_E5B9
+    mixed = (mixed ^ (mixed >> 27)) &* 0x94D0_49BB_1331_11EB
+    return mixed ^ (mixed >> 31)
   }
 }
