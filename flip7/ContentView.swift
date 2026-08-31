@@ -1,23 +1,36 @@
 import SwiftUI
 
 struct ContentView: View {
+  @Environment(\.scenePhase) private var scenePhase
   @State private var session = GameSession()
   @State private var isShowingSession = false
 
   var body: some View {
-    NavigationStack {
-      NewGameView(session: session) {
-        if session.start() {
-          isShowingSession = true
+    Group {
+      if scenePhase == .active {
+        NavigationStack {
+          NewGameView(session: session) {
+            if session.start() {
+              isShowingSession = true
+            }
+          }
+          .navigationDestination(isPresented: $isShowingSession) {
+            PlayerHandoffView(session: session)
+          }
+          .onChange(of: isShowingSession) { _, isShowing in
+            if !isShowing {
+              session.resetGame()
+            }
+          }
         }
+      } else {
+        Text("Game Hidden")
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
-      .navigationDestination(isPresented: $isShowingSession) {
-        PlayerHandoffView(session: session)
-      }
-      .onChange(of: isShowingSession) { _, isShowing in
-        if !isShowing {
-          session.resetGame()
-        }
+    }
+    .onChange(of: scenePhase) { _, phase in
+      if phase != .active {
+        session.conceal()
       }
     }
   }
@@ -88,17 +101,11 @@ private struct PlayerHandoffView: View {
   let session: GameSession
 
   var body: some View {
-    ScrollView {
-      Group {
-        if let playerName = session.actingPlayerName {
-          if session.isActingPlayerRevealed {
-            VStack(spacing: 16) {
-              Text("\(playerName)'s turn")
-                .font(.title)
-              Text("The game session is ready.")
-            }
-          } else {
-            VStack(spacing: 16) {
+    Group {
+      if session.needsHandoff {
+        ScrollView {
+          VStack(spacing: 16) {
+            if let playerName = session.presentedPlayerName {
               Text("Pass the device to \(playerName)")
                 .font(.title)
                 .multilineTextAlignment(.center)
@@ -111,18 +118,18 @@ private struct PlayerHandoffView: View {
               }
               .buttonStyle(.borderedProminent)
               .frame(minHeight: 44)
+            } else {
+              Text("The game couldn't identify the next player.")
             }
           }
-        } else {
-          Text("The game couldn't identify the next player.")
+          .frame(maxWidth: .infinity)
+          .padding()
         }
+      } else {
+        GameTableView(session: session)
       }
-      .frame(maxWidth: .infinity)
-      .padding()
     }
-    .navigationTitle(
-      session.isActingPlayerRevealed ? "Game" : "Pass the Device"
-    )
+    .navigationTitle(session.needsHandoff ? "Pass the Device" : "Game")
   }
 }
 
