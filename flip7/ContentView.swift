@@ -32,15 +32,15 @@ private struct NewGameView: View {
   var body: some View {
     Form {
       Section {
-        ForEach(Array($session.playerDrafts.enumerated()), id: \.element.id) {
-          index, $player in
-          TextField("Player name", text: $player.name)
-            .textContentType(.name)
-            .accessibilityLabel("Player \(index + 1) name")
-            .deleteDisabled(!session.canRemovePlayer)
-        }
-        .onDelete { session.removePlayers(at: $0) }
-        .onMove { session.movePlayers(from: $0, to: $1) }
+        TextField("Your name", text: $session.humanName)
+          .textContentType(.name)
+          .accessibilityLabel("Your name")
+
+        Stepper(
+          "Computer opponents: \(session.opponentCount)",
+          value: $session.opponentCount,
+          in: (Ruleset.minimumPlayerCount - 1)...(Ruleset.maximumPlayerCount - 1)
+        )
 
         if let setupError = session.setupError {
           Text(setupError)
@@ -48,19 +48,12 @@ private struct NewGameView: View {
             .accessibilityLabel("Setup error: \(setupError)")
             .accessibilityFocused($isSetupErrorFocused)
         }
-
-        Button(action: session.addPlayer) {
-          Label("Add Player", systemImage: "plus")
-        }
-        .disabled(!session.canAddPlayer)
-
-        EditButton()
       } header: {
         Text("Players")
       } footer: {
         Text(
-          "Add \(Ruleset.minimumPlayerCount) to "
-            + "\(Ruleset.maximumPlayerCount) players."
+          "Play against \(Ruleset.minimumPlayerCount - 1) to "
+            + "\(Ruleset.maximumPlayerCount - 1) computer opponents."
         )
       }
 

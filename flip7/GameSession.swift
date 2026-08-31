@@ -10,25 +10,17 @@ import SwiftUI
 @MainActor
 @Observable
 final class GameSession {
-  struct PlayerDraft: Identifiable, Equatable {
-    let id = UUID()
-    var name: String
-  }
-
   struct TurnOutcome: Equatable {
     let playerID: PlayerID
     let messages: [String]
   }
 
-  var playerDrafts = (1...Ruleset.minimumPlayerCount).map {
-    PlayerDraft(name: "Player \($0)")
-  } {
-    didSet {
-      setupError = nil
-    }
+  var humanName = "Player 1" {
+    didSet { setupError = nil }
   }
-  var humanName = "Player 1"
-  var opponentCount = Ruleset.minimumPlayerCount - 1
+  var opponentCount = Ruleset.minimumPlayerCount - 1 {
+    didSet { setupError = nil }
+  }
   private(set) var humanPlayerID = PlayerID(rawValue: 0)
   private(set) var setupError: String?
   private(set) var commandError: String?
@@ -38,14 +30,6 @@ final class GameSession {
 
   var state: GameState? {
     engine?.state
-  }
-
-  var canAddPlayer: Bool {
-    playerDrafts.count < Ruleset.maximumPlayerCount
-  }
-
-  var canRemovePlayer: Bool {
-    playerDrafts.count > Ruleset.minimumPlayerCount
   }
 
   var actingPlayerID: PlayerID? {
@@ -71,38 +55,29 @@ final class GameSession {
     return state.playerName(for: actingPlayerID)
   }
 
-  func addPlayer() {
-    guard canAddPlayer else {
-      return
-    }
-
-    let names = Set(
-      playerDrafts.map {
-        $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-      })
+  /// `GameEngine` trims and lowercases names and rejects duplicates, so an
+  /// opponent must never be handed the name the human typed. Generating after
+  /// reading the human's name and skipping any match is what keeps the default
+  /// path from failing with a name the player never entered.
+  private func playerNames() -> [String] {
+    let human = humanName.trimmingCharacters(in: .whitespacesAndNewlines)
+    var names = [human]
     var number = 1
-    while names.contains("player \(number)") {
+    while names.count <= opponentCount {
+      let candidate = "Opponent \(number)"
       number += 1
+      if candidate.lowercased() != human.lowercased() {
+        names.append(candidate)
+      }
     }
-    playerDrafts.append(PlayerDraft(name: "Player \(number)"))
-  }
-
-  func removePlayers(at offsets: IndexSet) {
-    guard playerDrafts.count - offsets.count >= Ruleset.minimumPlayerCount else {
-      return
-    }
-    playerDrafts.remove(atOffsets: offsets)
-  }
-
-  func movePlayers(from offsets: IndexSet, to destination: Int) {
-    playerDrafts.move(fromOffsets: offsets, toOffset: destination)
+    return names
   }
 
   func start() -> Bool {
     var generator = SystemRandomNumberGenerator()
     return start {
       try GameEngine(
-        playerNames: playerDrafts.map(\.name),
+        playerNames: playerNames(),
         shufflingWith: &generator
       )
     }
@@ -110,7 +85,7 @@ final class GameSession {
 
   func start(with deck: Deck) -> Bool {
     start {
-      try GameEngine(playerNames: playerDrafts.map(\.name), deck: deck)
+      try GameEngine(playerNames: playerNames(), deck: deck)
     }
   }
 
@@ -138,14 +113,14 @@ final class GameSession {
   }
 
   func hit(_ playerID: PlayerID, inputVersion: Int) {
-    guard actingPlayerID == playerID else {
+    guard actingPlayerID == playerID, playerID == humanPlayerID else {
       return
     }
     send(.hit(playerID), outcomeOwnerID: playerID, inputVersion: inputVersion)
   }
 
   func stay(_ playerID: PlayerID, inputVersion: Int) {
-    guard actingPlayerID == playerID else {
+    guard actingPlayerID == playerID, playerID == humanPlayerID else {
       return
     }
     send(.stay(playerID), outcomeOwnerID: playerID, inputVersion: inputVersion)
@@ -156,7 +131,7 @@ final class GameSession {
     targetPlayerID: PlayerID,
     inputVersion: Int
   ) {
-    guard let sourcePlayerID = actingPlayerID else {
+    guard let sourcePlayerID = actingPlayerID, sourcePlayerID == humanPlayerID else {
       return
     }
     send(
@@ -174,14 +149,22 @@ final class GameSession {
   /// Synchronous and free of timing, so tests drive a whole game in a loop
   /// without touching `Task`.
   func opponentCommandIfNeeded() -> GameCommand? {
-    nil
+    guard let state, let seat = actingPlayerID, seat != humanPlayerID else {
+      return nil
+    }
+    var generator = SystemRandomNumberGenerator()
+    return opponentCommand(for: state, seat: seat, using: &generator)
   }
 
   /// Plays one computer decision. Returns false when the acting seat is the
   /// human or there is nothing to do.
   @discardableResult
   func playOpponentTurnIfNeeded() -> Bool {
-    false
+    guard let command = opponentCommandIfNeeded(), let seat = actingPlayerID else {
+      return false
+    }
+    send(command, outcomeOwnerID: seat, inputVersion: inputVersion)
+    return true
   }
 
   func resetGame() {

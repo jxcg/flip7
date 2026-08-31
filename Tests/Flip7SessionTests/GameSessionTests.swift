@@ -49,6 +49,15 @@ func soloGameCompletes() throws {
   Issue.record("The seeded solo game did not finish")
 }
 
+/// Plays computer turns until the human is the acting seat. The first turn of a
+/// round belongs to the seat left of the dealer, which is not always the human.
+@MainActor
+private func advanceToHumanTurn(_ session: GameSession) {
+  for _ in 0..<200 where session.actingPlayerID != session.humanPlayerID {
+    if !session.playOpponentTurnIfNeeded() { return }
+  }
+}
+
 @MainActor
 @Test("The human cannot act for a computer seat")
 func humanCannotPlayComputerSeats() throws {
@@ -56,13 +65,6 @@ func humanCannotPlayComputerSeats() throws {
   session.opponentCount = 2
   #expect(session.start(with: .canonical))
 
-  // Advance to a seat the human does not own.
-  for _ in 0..<50 where session.actingPlayerID == session.humanPlayerID {
-    session.playOpponentTurnIfNeeded()
-    if let seat = session.actingPlayerID, seat == session.humanPlayerID {
-      session.hit(seat, inputVersion: session.inputVersion)
-    }
-  }
   let seat = try #require(session.actingPlayerID)
   try #require(seat != session.humanPlayerID)
 
@@ -78,6 +80,7 @@ func staleInputIsRejected() throws {
   let session = GameSession()
   session.opponentCount = 2
   #expect(session.start(with: .canonical))
+  advanceToHumanTurn(session)
   let seat = try #require(session.actingPlayerID)
   try #require(seat == session.humanPlayerID)
 
