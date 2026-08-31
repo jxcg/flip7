@@ -180,7 +180,7 @@ func secondChanceWithoutEligibleTargetIsDiscarded() throws {
   #expect(engine.state.phase == .awaitingTurn(player(1)))
   #expect(
     events.contains {
-      if case .cardDiscarded(let card) = $0 {
+      if case .actionDiscardedWithoutTarget(let card) = $0 {
         card.kind == .action(.secondChance)
       } else {
         false

@@ -339,7 +339,7 @@ final class GameSession {
       "The discard pile was reshuffled."
     case .cardDrawn(let playerID, let card):
       "\(state.playerName(for: playerID)) drew \(card.displayName)."
-    case .cardDiscarded(let card):
+    case .actionDiscardedWithoutTarget(let card):
       "\(card.displayName) was discarded."
     case .secondChanceGranted(let playerID, _):
       "\(state.playerName(for: playerID)) received Second Chance."
