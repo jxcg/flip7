@@ -1,11 +1,13 @@
 /// Chooses a command for a computer-driven seat.
 ///
-/// Returns `nil` when the seat has nothing to decide in the current phase.
+/// Returns `nil` when the seat has nothing to decide in the current phase. The
+/// design spec specifies a non-optional return; that is unimplementable, since
+/// no command is the honest answer for a phase the seat cannot act in.
 ///
 /// The policy reads the draw pile only as a multiset. That is equivalent to the
 /// card counting a human can already do, because deck composition is public and
-/// every card is face up. Reading the pile's *order* would be cheating, and
-/// `fairnessIgnoresDrawOrder` enforces that it does not.
+/// every card is face up. Reading the pile's *order* would be cheating, and the
+/// draw-order fairness test enforces that it does not.
 public func opponentCommand<R: RandomNumberGenerator>(
   for state: GameState,
   seat: PlayerID,
@@ -41,62 +43,83 @@ private func shouldHit(_ player: PlayerState, remaining: [GameCard]) -> Bool {
   guard player.hasCardInFront else {
     return true
   }
-  // A Second Chance absorbs the next duplicate, so the next draw cannot bust.
-  if player.secondChance != nil {
-    return true
+
+  let score = player.roundScore
+  // Banking a winning total beats growing it. A bust would forfeit the game.
+  if player.bankedScore + score.total >= Ruleset.targetScore {
+    return false
   }
   guard !remaining.isEmpty else {
     return true
   }
 
   let held = Set(player.roundCards.numberValues)
-  let bustingCount = remaining.filter { card in
-    if case .number(let value) = card.kind {
-      return held.contains(value)
+  let safeCards = remaining.filter { card in
+    guard case .number(let value) = card.kind else {
+      // Only a duplicate number can bust. Modifiers and actions never do.
+      return true
     }
-    return false
-  }.count
-  guard bustingCount < remaining.count else {
+    return !held.contains(value)
+  }
+  guard !safeCards.isEmpty else {
     return false
   }
 
-  let bustProbability = Double(bustingCount) / Double(remaining.count)
-  let currentScore = Double(player.roundScore.total)
-  let expectedGain = averageNumberValue(of: remaining, excluding: held)
-  // One away from the bonus, the next unique number is worth far more than its
-  // face value, and it ends the round.
-  let flipSevenValue =
-    held.count == Ruleset.flipSevenNumberCount - 1
-    ? Double(Ruleset.flipSevenBonus)
-    : 0
+  // A Second Chance absorbs a directly drawn duplicate, so this draw cannot
+  // bust. It does not cover a drawn Flip Three whose forced draws overrun it.
+  // ponytail: one-step model; add multi-draw lookahead only if play shows it matters.
+  let bustProbability =
+    player.secondChance != nil
+    ? 0
+    : Double(remaining.count - safeCards.count) / Double(remaining.count)
 
-  let hitValue = (1 - bustProbability) * (currentScore + expectedGain + flipSevenValue)
+  let currentScore = Double(score.total)
+  let expectedGain = averageGain(
+    of: safeCards,
+    held: held,
+    numberSubtotal: score.numberSubtotal,
+    multiplier: score.multiplier
+  )
+  let hitValue = (1 - bustProbability) * (currentScore + expectedGain)
   return hitValue > currentScore
 }
 
-private func averageNumberValue(
-  of cards: [GameCard],
-  excluding held: Set<NumberValue>
+/// Mean points a non-busting draw adds, averaged over every card that could
+/// legally arrive rather than over number cards alone. Roughly fifteen of the
+/// ninety-four cards score nothing directly, and ignoring them inflates the
+/// expected gain enough to hit where staying is correct.
+private func averageGain(
+  of safeCards: [GameCard],
+  held: Set<NumberValue>,
+  numberSubtotal: Int,
+  multiplier: Int
 ) -> Double {
-  let values = cards.compactMap { card -> Int? in
-    guard case .number(let value) = card.kind, !held.contains(value) else {
-      return nil
-    }
-    return value.rawValue
-  }
-  guard !values.isEmpty else {
-    return 0
-  }
-  return Double(values.reduce(0, +)) / Double(values.count)
-}
+  // Every safe number is one this seat does not hold, so at six uniques any of
+  // them completes the bonus. Modifiers and actions never do.
+  let completesFlipSeven = held.count == Ruleset.flipSevenNumberCount - 1
 
-private func uniqueNumberCount(_ player: PlayerState) -> Int {
-  Set(player.roundCards.numberValues).count
+  let total = safeCards.reduce(0.0) { runningTotal, card in
+    switch card.kind {
+    case .number(let value):
+      let faceValue = Double(value.rawValue * multiplier)
+      let bonus = completesFlipSeven ? Double(Ruleset.flipSevenBonus) : 0
+      return runningTotal + faceValue + bonus
+    case .scoreModifier(.additive(let bonus)):
+      return runningTotal + Double(bonus.rawValue)
+    case .scoreModifier(.double):
+      return runningTotal + Double(numberSubtotal * multiplier)
+    case .action:
+      // Actions score nothing directly. Their value is situational and is not
+      // modelled here.
+      return runningTotal
+    }
+  }
+  return total / Double(safeCards.count)
 }
 
 /// Picks a target on merit across every legal target, with no special case for
-/// any seat. That is what spreads incoming actions across the table instead of
-/// converging them on whoever happens to lead.
+/// the human seat. That is what spreads incoming actions across the table
+/// instead of converging them on whoever happens to lead.
 private func actionTarget<R: RandomNumberGenerator>(
   for decision: PendingActionDecision,
   in state: GameState,
@@ -115,48 +138,56 @@ private func actionTarget<R: RandomNumberGenerator>(
     // Freeze sets the target to .frozen, which ScoreBreakdown scores normally,
     // so it banks their round score. The value is in denying future growth,
     // above all a Flip 7 run, never in punishing a current total.
-    let mostAdvanced = candidates.map(uniqueNumberCount).max() ?? 0
-    let chasers = candidates.filter { uniqueNumberCount($0) == mostAdvanced }
-    // Among equally advanced chases, freeze whoever we gift the least.
-    let smallestGift = chasers.map(\.roundScore.total).min() ?? 0
-    let tied = chasers.filter { $0.roundScore.total == smallestGift }
-    return tied.randomElement(using: &generator)?.id
+    return bestHarm(among: candidates, avoiding: seat, using: &generator) { player in
+      // Denial rises with how far along a hand is: more uniques means more
+      // momentum and a shorter run to the bonus. Subtract half the score the
+      // freeze banks for them, halved because freezing also removes the bust
+      // risk they were carrying, which was going to cost them sometimes.
+      let momentum = Double(player.roundCards.uniqueNumberCount * 5)
+      return momentum - Double(player.roundScore.total) * 0.5
+    }
 
   case .action(.flipThree):
     // Three forced draws bust whoever already holds the most unique numbers.
     // A held Second Chance absorbs one of those draws.
-    return bestTarget(among: candidates, using: &generator) { player in
-      player.secondChance == nil
-        ? uniqueNumberCount(player)
-        : uniqueNumberCount(player) - 1
+    return bestHarm(among: candidates, avoiding: seat, using: &generator) { player in
+      let uniques = Double(player.roundCards.uniqueNumberCount)
+      return player.secondChance == nil ? uniques : uniques - 1
     }
 
   case .action(.secondChance):
-    // Keeping it is always best. When self-targeting is illegal the card must
-    // still go somewhere, so give it to the seat it protects least.
-    if candidates.contains(where: { $0.id == seat }) {
-      return seat
-    }
-    return bestTarget(among: candidates, using: &generator) { player in
-      -uniqueNumberCount(player)
+    // The engine auto-keeps a drawn Second Chance when the seat holds none, and
+    // excludes every holder from legalTargetIDs, so the drawing seat is never
+    // among its own targets. The card must be given away; it goes to whoever it
+    // protects least. A self-targeting branch here would be unreachable.
+    return bestHarm(among: candidates, avoiding: seat, using: &generator) { player in
+      -Double(player.roundCards.uniqueNumberCount)
     }
 
   case .number, .scoreModifier:
+    // The engine only pauses for action cards, so this is unreachable.
     return candidates.randomElement(using: &generator)?.id
   }
 }
 
-/// Returns the highest-ranked candidate, breaking ties with the generator so
-/// equally good targets are not always the same player. `rank` returns `Int`
-/// rather than a tuple because Swift tuples do not conform to `Comparable`.
-private func bestTarget<R: RandomNumberGenerator>(
+/// Returns the candidate that `harm` scores highest, excluding the acting seat
+/// unless it is the only legal target.
+///
+/// Excluding self matters: `legalTargetIDs` for Freeze and Flip Three is every
+/// active player, which always includes the seat holding the card. Ranking on a
+/// harm metric without this makes a seat that has been drawing rank top on
+/// itself and hand itself the punishment.
+private func bestHarm<R: RandomNumberGenerator>(
   among candidates: [PlayerState],
+  avoiding seat: PlayerID,
   using generator: inout R,
-  rank: (PlayerState) -> Int
+  harm: (PlayerState) -> Double
 ) -> PlayerID? {
-  guard let best = candidates.map(rank).max() else {
+  let others = candidates.filter { $0.id != seat }
+  let pool = others.isEmpty ? candidates : others
+  guard let best = pool.map(harm).max() else {
     return nil
   }
-  let tied = candidates.filter { rank($0) == best }
+  let tied = pool.filter { harm($0) == best }
   return tied.randomElement(using: &generator)?.id
 }

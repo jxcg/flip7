@@ -62,15 +62,38 @@ func certainBustStays() throws {
   #expect(opponentCommand(for: state, seat: seat(0), using: &generator) == .stay(seat(0)))
 }
 
-@Test("Holding Second Chance makes the next draw free, so it hits")
+@Test("A Second Chance absorbs the duplicate risk, so a hand with upside hits")
 func secondChanceHits() throws {
+  var generator = SeededGenerator(seed: 1)
+  // Two of three cards would bust an unshielded hand, so it would stay.
+  var state = try turnState(held: [.five, .six], pile: [.five, .six, .nine])
+  #expect(opponentCommand(for: state, seat: seat(0), using: &generator) == .stay(seat(0)))
+
+  state.players[0].secondChance = GameCard(
+    id: CardID(rawValue: 700),
+    kind: .action(.secondChance)
+  )
+  #expect(opponentCommand(for: state, seat: seat(0), using: &generator) == .hit(seat(0)))
+}
+
+@Test("A Second Chance is not spent on a draw that cannot gain anything")
+func secondChanceIsNotSpentForNothing() throws {
   var generator = SeededGenerator(seed: 1)
   var state = try turnState(held: [.five, .six], pile: [.five, .six, .five])
   state.players[0].secondChance = GameCard(
     id: CardID(rawValue: 700),
     kind: .action(.secondChance)
   )
-  #expect(opponentCommand(for: state, seat: seat(0), using: &generator) == .hit(seat(0)))
+  // Every remaining card is a duplicate, so hitting burns the shield for zero.
+  #expect(opponentCommand(for: state, seat: seat(0), using: &generator) == .stay(seat(0)))
+}
+
+@Test("A round score that would win the game is banked rather than grown")
+func winningScoreIsBanked() throws {
+  var generator = SeededGenerator(seed: 1)
+  var state = try turnState(held: [.one], pile: [.nine, .eight, .seven])
+  state.players[0].bankedScore = Ruleset.targetScore
+  #expect(opponentCommand(for: state, seat: seat(0), using: &generator) == .stay(seat(0)))
 }
 
 @Test("A seat with no decision to make returns nil")
@@ -132,29 +155,112 @@ func flipThreeTargetsTheFullestHand() throws {
   )
 }
 
-@Test("Second Chance is kept when the seat may target itself")
-func secondChanceIsKept() throws {
+@Test("The engine never offers a seat its own Second Chance")
+func secondChanceIsNeverSelfLegal() throws {
+  // GameEngine auto-keeps a drawn Second Chance when the seat holds none, so
+  // targeting is reached only when it already holds one, and legalTargetIDs
+  // excludes every holder. A self-targeting policy branch would be dead code.
+  // A Second Chance decision is rare, roughly once per six games, so this
+  // probes several seeded games rather than one.
+  var decisions = 0
+  for seed in UInt64(1)...30 {
+    var generator = SeededGenerator(seed: seed)
+    var engine = try GameEngine(playerNames: ["A", "B", "C"], shufflingWith: &generator)
+    _ = try engine.send(.startRound)
+
+    for _ in 0..<3_000 {
+      if case .gameComplete = engine.state.phase { break }
+      if case .roundComplete = engine.state.phase {
+        _ = try engine.send(.startNextRound)
+        continue
+      }
+      if case .awaitingAction(let decision) = engine.state.phase,
+        decision.card.kind == .action(.secondChance)
+      {
+        decisions += 1
+        #expect(!decision.legalTargetIDs.contains(decision.sourcePlayerID))
+      }
+      let actingSeat: PlayerID? =
+        switch engine.state.phase {
+        case .awaitingTurn(let id): id
+        case .awaitingAction(let decision): decision.sourcePlayerID
+        default: nil
+        }
+      guard let actingSeat,
+        let command = opponentCommand(for: engine.state, seat: actingSeat, using: &generator)
+      else { break }
+      _ = try engine.send(command)
+    }
+  }
+  #expect(decisions > 0, "the probe never saw a Second Chance decision")
+}
+
+@Test("Freeze and Flip Three spare the acting seat when anyone else is legal")
+func actionsAvoidTheActingSeat() throws {
+  // legalTargetIDs for these cards is every active player, which always
+  // includes the seat holding the card. Ranking on harm without excluding self
+  // makes a seat that has been drawing hand itself the punishment.
+  for card in [ActionCard.freeze, .flipThree] {
+    var generator = SeededGenerator(seed: 1)
+    let state = try actionState(card: card, targets: [seat(0), seat(1), seat(2)]) { state in
+      state.players[0].roundCards = RoundCards(
+        cards: numberCards([.one, .two, .three, .four, .five], startingAt: 560)
+      )
+      state.players[1].roundCards = RoundCards(cards: numberCards([.one], startingAt: 570))
+      state.players[2].roundCards = RoundCards(cards: numberCards([.two], startingAt: 580))
+    }
+    guard
+      case .chooseActionTarget(_, let target)? = opponentCommand(
+        for: state, seat: seat(0), using: &generator)
+    else {
+      Issue.record("expected a target choice for \(card)")
+      return
+    }
+    #expect(target != seat(0), "\(card) targeted the acting seat")
+  }
+}
+
+@Test("An action targets the acting seat when it is the only legal target")
+func actionsTargetSelfWhenAlone() throws {
   var generator = SeededGenerator(seed: 1)
-  let state = try actionState(card: .secondChance, targets: [seat(0), seat(1)])
+  let state = try actionState(card: .flipThree, targets: [seat(0)])
   #expect(
     opponentCommand(for: state, seat: seat(0), using: &generator)
       == .chooseActionTarget(cardID: CardID(rawValue: 600), targetPlayerID: seat(0))
   )
 }
 
+@Test("Tied targets vary with the generator rather than always picking one")
+func tiedTargetsVaryWithTheGenerator() throws {
+  var chosen: Set<PlayerID> = []
+  for seed in UInt64(1)...40 {
+    var generator = SeededGenerator(seed: seed)
+    // Seats 1 and 2 are identical, so the tie-break decides.
+    let state = try actionState(card: .freeze, targets: [seat(1), seat(2)])
+    if case .chooseActionTarget(_, let target)? = opponentCommand(
+      for: state, seat: seat(0), using: &generator)
+    {
+      chosen.insert(target)
+    }
+  }
+  #expect(chosen == [seat(1), seat(2)])
+}
+
 @Test("A Second Chance that cannot be kept goes to whoever it helps least")
 func secondChanceGoesToTheSafestOpponent() throws {
   var generator = SeededGenerator(seed: 1)
+  // The answer is deliberately not first in legalTargetIDs, so a policy that
+  // simply returned candidates.first would fail.
   let state = try actionState(card: .secondChance, targets: [seat(1), seat(2)]) { state in
-    state.players[1].roundCards = RoundCards(cards: numberCards([.one], startingAt: 540))
-    state.players[2].roundCards = RoundCards(
-      cards: numberCards([.one, .two, .three], startingAt: 550)
+    state.players[1].roundCards = RoundCards(
+      cards: numberCards([.one, .two, .three], startingAt: 540)
     )
+    state.players[2].roundCards = RoundCards(cards: numberCards([.one], startingAt: 550))
   }
 
   #expect(
     opponentCommand(for: state, seat: seat(0), using: &generator)
-      == .chooseActionTarget(cardID: CardID(rawValue: 600), targetPlayerID: seat(1))
+      == .chooseActionTarget(cardID: CardID(rawValue: 600), targetPlayerID: seat(2))
   )
 }
 @Test("The policy ignores draw order, so it cannot peek at the next card")
@@ -183,7 +289,8 @@ func fairnessIgnoresDrawOrder() throws {
 
 @Test("The policy is deterministic for a given state and seed")
 func policyIsDeterministic() throws {
-  let state = try turnState(held: [.five], pile: [.five, .nine, .three])
+  // A tied action decision, so the generator is actually consulted.
+  let state = try actionState(card: .freeze, targets: [seat(1), seat(2)])
   var first = SeededGenerator(seed: 42)
   var second = SeededGenerator(seed: 42)
   #expect(
