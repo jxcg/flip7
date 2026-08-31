@@ -27,6 +27,9 @@ final class GameSession {
       setupError = nil
     }
   }
+  var humanName = "Player 1"
+  var opponentCount = Ruleset.minimumPlayerCount - 1
+  private(set) var humanPlayerID = PlayerID(rawValue: 0)
   private(set) var setupError: String?
   private(set) var commandError: String?
   private(set) var turnOutcome: TurnOutcome?
@@ -165,6 +168,20 @@ final class GameSession {
 
   func startNextRound(inputVersion: Int) {
     send(.startNextRound, outcomeOwnerID: nil, inputVersion: inputVersion)
+  }
+
+  /// The command for the acting seat when that seat is computer driven.
+  /// Synchronous and free of timing, so tests drive a whole game in a loop
+  /// without touching `Task`.
+  func opponentCommandIfNeeded() -> GameCommand? {
+    nil
+  }
+
+  /// Plays one computer decision. Returns false when the acting seat is the
+  /// human or there is nothing to do.
+  @discardableResult
+  func playOpponentTurnIfNeeded() -> Bool {
+    false
   }
 
   func resetGame() {

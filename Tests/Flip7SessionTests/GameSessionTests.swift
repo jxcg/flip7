@@ -4,86 +4,100 @@ import Testing
 @testable import Flip7Session
 
 @MainActor
-@Test("A seeded session plays from setup to a final result")
-func seededSessionCompletesGame() throws {
-  let roundOne: [CardKind] = [
-    .action(.freeze), .number(.one), .number(.two),
-    .scoreModifier(.double), .scoreModifier(.additive(.ten)),
-    .number(.eleven), .number(.ten), .number(.nine),
-    .number(.eight), .number(.seven), .number(.six),
-  ]
-  let roundTwo: [CardKind] = [
-    .number(.three), .number(.four), .number(.twelve),
-    .number(.eleven), .number(.ten), .number(.nine),
-    .number(.eight), .number(.seven), .number(.six),
-  ]
-  let cards = (roundOne + roundTwo).enumerated().map {
-    GameCard(id: CardID(rawValue: $0.offset), kind: $0.element)
-  }
-  let winnerID = PlayerID(rawValue: 1)
-  let frozenPlayerID = PlayerID(rawValue: 2)
+@Test("A seeded solo game reaches a final result with no timing")
+func soloGameCompletes() throws {
   let session = GameSession()
+  session.humanName = "Josh"
+  session.opponentCount = 3
+  #expect(session.start(with: .canonical))
+  #expect(session.setupError == nil)
 
-  #expect(session.start(with: Deck(drawPile: cards)))
-  var checkedStaleInput = false
-  var resolvedAction = false
-  var roundsAnnounced: Set<Int> = []
-
-  for _ in 0..<100 {
-    if let outcome = session.turnOutcome,
-      outcome.messages.contains(where: {
-        $0.hasPrefix("Round ") && $0.hasSuffix(" started.")
-      })
-    {
-      // turnOutcome no longer gates play, so it can be observed more than once
-      // per round. Collect round numbers rather than counting sightings.
-      roundsAnnounced.insert(session.state?.roundNumber ?? 0)
-    }
-
+  var sawOpponentTurn = false
+  for _ in 0..<5_000 {
     let state = try #require(session.state)
-    switch state.phase {
-    case .awaitingTurn(let playerID):
-      let inputVersion = session.inputVersion
-      if playerID == winnerID {
-        session.hit(playerID, inputVersion: inputVersion)
-      } else {
-        session.stay(playerID, inputVersion: inputVersion)
-      }
-    case .roundComplete:
+    if case .gameComplete(let result) = state.phase {
+      #expect(!result.winnerIDs.isEmpty)
+      #expect(result.winningScore >= Ruleset.targetScore)
+      #expect(sawOpponentTurn)
+      return
+    }
+    if case .roundComplete = state.phase {
       session.startNextRound(inputVersion: session.inputVersion)
-    case .awaitingAction(let decision):
-      #expect(decision.card.kind == .action(.freeze))
-      let staleInputVersion = session.inputVersion
+      continue
+    }
+    if session.playOpponentTurnIfNeeded() {
+      sawOpponentTurn = true
+      continue
+    }
+    // The human plays a fixed, boring strategy so this stays a test of the
+    // driver rather than of human choices.
+    let seat = try #require(session.actingPlayerID)
+    #expect(seat == session.humanPlayerID)
+    if case .awaitingAction(let decision) = state.phase {
+      let target = try #require(decision.legalTargetIDs.first)
       session.chooseActionTarget(
         cardID: decision.card.id,
-        targetPlayerID: frozenPlayerID,
-        inputVersion: staleInputVersion
+        targetPlayerID: target,
+        inputVersion: session.inputVersion
       )
-
-      let stateAfterAction = session.state
-      let inputVersionAfterAction = session.inputVersion
-      session.chooseActionTarget(
-        cardID: decision.card.id,
-        targetPlayerID: frozenPlayerID,
-        inputVersion: staleInputVersion
-      )
-      #expect(session.state == stateAfterAction)
-      #expect(session.inputVersion == inputVersionAfterAction)
-      #expect(session.commandError == nil)
-      checkedStaleInput = true
-      resolvedAction = true
-    case .gameComplete(let result):
-      #expect(result.winnerIDs == [winnerID])
-      #expect(result.winningScore == 209)
-      #expect(checkedStaleInput)
-      #expect(resolvedAction)
-      #expect(roundsAnnounced == [1, 2])
-      return
-    case .waitingToStartRound, .dealingOpeningCards:
-      Issue.record("The engine left a transient phase visible")
-      return
+    } else if state.players.first(where: { $0.id == seat })?.hasCardInFront == true {
+      session.stay(seat, inputVersion: session.inputVersion)
+    } else {
+      session.hit(seat, inputVersion: session.inputVersion)
     }
   }
+  Issue.record("The seeded solo game did not finish")
+}
 
-  Issue.record("The seeded game did not finish")
+@MainActor
+@Test("The human cannot act for a computer seat")
+func humanCannotPlayComputerSeats() throws {
+  let session = GameSession()
+  session.opponentCount = 2
+  #expect(session.start(with: .canonical))
+
+  // Advance to a seat the human does not own.
+  for _ in 0..<50 where session.actingPlayerID == session.humanPlayerID {
+    session.playOpponentTurnIfNeeded()
+    if let seat = session.actingPlayerID, seat == session.humanPlayerID {
+      session.hit(seat, inputVersion: session.inputVersion)
+    }
+  }
+  let seat = try #require(session.actingPlayerID)
+  try #require(seat != session.humanPlayerID)
+
+  let before = session.state
+  session.hit(seat, inputVersion: session.inputVersion)
+  session.stay(seat, inputVersion: session.inputVersion)
+  #expect(session.state == before)
+}
+
+@MainActor
+@Test("A stale input version is rejected without an error")
+func staleInputIsRejected() throws {
+  let session = GameSession()
+  session.opponentCount = 2
+  #expect(session.start(with: .canonical))
+  let seat = try #require(session.actingPlayerID)
+  try #require(seat == session.humanPlayerID)
+
+  let staleVersion = session.inputVersion
+  session.hit(seat, inputVersion: staleVersion)
+  let stateAfterHit = session.state
+  let versionAfterHit = session.inputVersion
+
+  session.hit(seat, inputVersion: staleVersion)
+  #expect(session.state == stateAfterHit)
+  #expect(session.inputVersion == versionAfterHit)
+  #expect(session.commandError == nil)
+}
+
+@MainActor
+@Test("Starting with the default name succeeds")
+func defaultNameStartsCleanly() throws {
+  let session = GameSession()
+  #expect(session.start(with: .canonical))
+  #expect(session.setupError == nil)
+  let names = try #require(session.state).players.map(\.name)
+  #expect(Set(names.map { $0.lowercased() }).count == names.count)
 }
