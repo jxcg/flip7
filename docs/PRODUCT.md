@@ -6,10 +6,10 @@ Deliver a polished, complete native iOS game that implements the full approved r
 
 ## Product foundation
 
-- Local pass-and-play and computer opponents are required for the first release.
+- Solo play against computer opponents is the only mode the interface offers for the first release. Local pass-and-play is owner-declined as of 31 August 2026, superseding the earlier decision in #19 and the handoff work shipped in #5 and #7.
 - Nearby-device play will be studied without a hosted server when two owner-approved physical devices are available. Shipping it remains a later decision based on that evidence.
 - Private internet games and public matchmaking are scheduled later and do not block the first release.
-- A complete base game will support 3–9 named players.
+- The rules support 3 to 9 seats. The interface seats one named human plus 2 to 8 computer opponents, which is the same range.
 - The rules implementation will cover the approved 94-card deck: number cards, score modifiers, Freeze, Flip Three, and Second Chance.
 - The app will own dealing, legal choices, action targeting, scoring, round transitions, and victory detection.
 - `Flip7` is the private repository working title. The repository and internal code names remain unchanged unless separately approved.
@@ -17,7 +17,7 @@ Deliver a polished, complete native iOS game that implements the full approved r
 - The interface, artwork, card faces, logo, packaging, and wording must be original. Commercial assets and copy will not be used.
 - Issue #19 records application and product choices. Issue #10 owns final app naming and release execution.
 
-The rules engine remains independent of SwiftUI, device handoff, computer opponents, and networking so every approved mode can share one deterministic rules implementation.
+The rules engine remains independent of SwiftUI, computer opponents, and networking so every approved mode can share one deterministic rules implementation. It keeps its 3 to 9 seat support even though the interface now seats one human, so removing pass-and-play costs nothing in #24.
 
 ## Product design principles
 
@@ -39,7 +39,7 @@ The first release is complete only when:
 
 1. Every decision named in issue #19 has an owner-recorded disposition and rationale.
 2. Every included capability has a focused GitHub issue with measurable acceptance criteria, and every such issue is complete.
-3. Players can finish the complete game in every approved mode, including private handoff in local play.
+3. Players can finish the complete game in every approved mode.
 4. The full selected rules contract, every card interaction, and every end-game condition are implemented and tested.
 5. Onboarding, legal choices, action cards, scoring, standings, and final results are understandable without external instructions.
 6. Interrupted games restore safely without lost or corrupted state.
