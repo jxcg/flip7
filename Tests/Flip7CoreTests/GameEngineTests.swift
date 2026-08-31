@@ -173,11 +173,12 @@ func secondChanceWithoutEligibleTargetIsDiscarded() throws {
   try engine.send(.hit(player(1)))
   try engine.send(.stay(player(2)))
   try engine.send(.stay(player(0)))
-  try engine.send(.hit(player(1)))
+  let events = try engine.send(.hit(player(1)))
 
   #expect(engine.state.players[1].secondChance == originalSecondChance)
   #expect(engine.state.deck.discardedCount == 1)
   #expect(engine.state.phase == .awaitingTurn(player(1)))
+  #expect(events.count == 2)
 }
 
 @Test("Second Chance belongs to its assigned target")
