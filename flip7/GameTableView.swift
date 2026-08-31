@@ -33,6 +33,13 @@ struct GameTableView: View {
     }
   }
 
+  private func waitingForOpponent() -> some View {
+    Section("Waiting") {
+      Text(session.actingPlayerName.map { "\($0) is deciding." } ?? "Waiting.")
+        .accessibilityLabel(session.turnPrompt ?? "Waiting for the next player.")
+    }
+  }
+
   private func gameStatus(_ state: GameState) -> some View {
     Section("Game") {
       LabeledContent("Round", value: "\(state.roundNumber)")
@@ -59,6 +66,11 @@ struct GameTableView: View {
   @ViewBuilder
   private func controls(for state: GameState) -> some View {
     switch state.phase {
+    // Hit, Stay and target choices belong to the human seat. Rendering them
+    // enabled on a computer's turn offers buttons that silently do nothing.
+    case .awaitingTurn where !session.isHumanTurn,
+      .awaitingAction where !session.isHumanTurn:
+      waitingForOpponent()
     case .waitingToStartRound:
       Section("Round") {
         Text("Ready to deal.")

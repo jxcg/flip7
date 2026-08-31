@@ -4,9 +4,10 @@ import Testing
 @testable import Flip7Session
 
 @MainActor
-@Test("A seeded solo game reaches a final result with no timing")
+@Test("A solo game reaches a final result without touching timing")
 func soloGameCompletes() throws {
   let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
   session.humanName = "Josh"
   session.opponentCount = 3
   #expect(session.start(with: .canonical))
@@ -46,14 +47,16 @@ func soloGameCompletes() throws {
       session.hit(seat, inputVersion: session.inputVersion)
     }
   }
-  Issue.record("The seeded solo game did not finish")
+  Issue.record("The solo game did not finish")
 }
 
 /// Plays computer turns until the human is the acting seat. The first turn of a
 /// round belongs to the seat left of the dealer, which is not always the human.
 @MainActor
 private func advanceToHumanTurn(_ session: GameSession) {
-  for _ in 0..<200 where session.actingPlayerID != session.humanPlayerID {
+  var guardCounter = 0
+  while session.actingPlayerID != session.humanPlayerID, guardCounter < 200 {
+    guardCounter += 1
     if !session.playOpponentTurnIfNeeded() { return }
   }
 }
@@ -62,6 +65,7 @@ private func advanceToHumanTurn(_ session: GameSession) {
 @Test("The human cannot act for a computer seat")
 func humanCannotPlayComputerSeats() throws {
   let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
   session.opponentCount = 2
   #expect(session.start(with: .canonical))
 
@@ -78,6 +82,7 @@ func humanCannotPlayComputerSeats() throws {
 @Test("A stale input version is rejected without an error")
 func staleInputIsRejected() throws {
   let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
   session.opponentCount = 2
   #expect(session.start(with: .canonical))
   advanceToHumanTurn(session)
@@ -99,6 +104,7 @@ func staleInputIsRejected() throws {
 @Test("Starting with the default name succeeds")
 func defaultNameStartsCleanly() throws {
   let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
   #expect(session.start(with: .canonical))
   #expect(session.setupError == nil)
   let names = try #require(session.state).players.map(\.name)

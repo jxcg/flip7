@@ -62,7 +62,29 @@ final class GameSession {
   /// What VoiceOver should say about the current decision. Kept separate from
   /// the outcome so a turn is still announced after a result is shown.
   var turnPrompt: String? {
-    nil
+    guard let state else {
+      return nil
+    }
+    switch state.phase {
+    case .awaitingTurn(let playerID):
+      let name = state.playerName(for: playerID)
+      let canStay = state.players.first { $0.id == playerID }?.hasCardInFront == true
+      return canStay
+        ? "\(name)'s turn. Available actions: Hit or Stay."
+        : "\(name)'s turn. Available action: Hit."
+    case .awaitingAction(let decision):
+      let targets = decision.legalTargetIDs
+        .map { state.playerName(for: $0) }
+        .joined(separator: ", ")
+      return "\(state.playerName(for: decision.sourcePlayerID)) must choose a target for "
+        + "\(decision.card.displayName). Available targets: \(targets)."
+    case .roundComplete(let summary):
+      return "Round \(summary.roundNumber) complete."
+    case .gameComplete(let result):
+      return "\(winnerNames(for: result, in: state)) won with \(result.winningScore) points."
+    case .waitingToStartRound, .dealingOpeningCards:
+      return nil
+    }
   }
 
   var actingPlayerName: String? {
@@ -191,7 +213,7 @@ final class GameSession {
   private func scheduleOpponentTurn() {
     opponentTask?.cancel()
     opponentTask = nil
-    guard opponentCommandIfNeeded() != nil else {
+    guard let seat = actingPlayerID, seat != humanPlayerID else {
       return
     }
 
@@ -260,39 +282,21 @@ final class GameSession {
       self.inputVersion += 1
       commandError = "That action is no longer available."
       AccessibilityNotification.Announcement(commandError ?? "Action unavailable.").post()
+      // Bumping inputVersion above invalidated any sleeping task, so this must
+      // reschedule or a computer seat on turn hangs the game permanently.
+      scheduleOpponentTurn()
     }
   }
 
   private func announceCurrentView() {
-    if let turnOutcome {
-      AccessibilityNotification.Announcement(
-        turnOutcome.messages.joined(separator: " ")
-      ).post()
+    // Both parts, in one announcement. turnOutcome is never nil after start(),
+    // so announcing only the outcome would never say whose turn it is.
+    let parts = [turnOutcome?.messages.joined(separator: " "), turnPrompt]
+      .compactMap { $0 }
+    guard !parts.isEmpty else {
       return
     }
-
-    guard let state, let actingPlayerName else {
-      return
-    }
-
-    let message =
-      switch state.phase {
-      case .awaitingTurn(let playerID):
-        if state.players.first(where: { $0.id == playerID })?.hasCardInFront == true {
-          "\(actingPlayerName)'s turn. Available actions: Hit or Stay."
-        } else {
-          "\(actingPlayerName)'s turn. Available action: Hit."
-        }
-      case .awaitingAction(let decision):
-        "\(actingPlayerName) must choose a target for "
-          + "\(decision.card.displayName). Available targets: "
-          + decision.legalTargetIDs.map { state.playerName(for: $0) }.joined(separator: ", ")
-          + "."
-      case .waitingToStartRound, .dealingOpeningCards,
-        .roundComplete, .gameComplete:
-        actingPlayerName
-      }
-    AccessibilityNotification.Announcement(message).post()
+    AccessibilityNotification.Announcement(parts.joined(separator: " ")).post()
   }
 
   private func message(for command: GameCommand, in state: GameState) -> String? {
@@ -341,9 +345,10 @@ final class GameSession {
   private func message(for error: GameRuleError) -> String {
     switch error {
     case .invalidPlayerCount:
-      "Add between \(Ruleset.minimumPlayerCount) and \(Ruleset.maximumPlayerCount) players."
-    case .emptyPlayerName(let index):
-      "Enter a name for Player \(index + 1)."
+      "Choose between \(Ruleset.minimumPlayerCount - 1) and "
+        + "\(Ruleset.maximumPlayerCount - 1) opponents."
+    case .emptyPlayerName:
+      "Enter your name."
     case .duplicatePlayerName(let name):
       "\(name) is used more than once."
     default:
