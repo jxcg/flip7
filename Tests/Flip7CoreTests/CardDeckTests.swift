@@ -89,7 +89,9 @@ private func testCard(_ id: Int, _ kind: CardKind) -> GameCard {
   GameCard(id: CardID(rawValue: id), kind: kind)
 }
 
-private struct SeededGenerator: RandomNumberGenerator {
+/// Shared across the test target so the opponent policy tests can reproduce a
+/// run without declaring a second generator.
+struct SeededGenerator: RandomNumberGenerator {
   private var state: UInt64
 
   init(seed: UInt64) {
