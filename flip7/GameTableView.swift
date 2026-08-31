@@ -7,20 +7,13 @@ struct GameTableView: View {
   var body: some View {
     if let state = session.state {
       Form {
-        if session.needsHandoff, let playerName = session.presentedPlayerName {
-          handoff(playerName)
-        }
-
         gameStatus(state)
 
-        Group {
-          if let outcome = session.turnOutcome {
-            outcomeSection(outcome)
-          } else {
-            controls(for: state)
-          }
+        if let outcome = session.turnOutcome {
+          outcomeSection(outcome)
         }
-        .disabled(session.needsHandoff)
+
+        controls(for: state)
 
         players(state)
 
@@ -40,17 +33,6 @@ struct GameTableView: View {
     }
   }
 
-  private func handoff(_ playerName: String) -> some View {
-    Section("Pass the Device") {
-      Text("\(playerName)'s turn")
-      Text("Confirm the next player before using the game controls.")
-      Button("I'm \(playerName)") {
-        session.revealForCurrentPlayer()
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
-    }
-  }
-
   private func gameStatus(_ state: GameState) -> some View {
     Section("Game") {
       LabeledContent("Round", value: "\(state.roundNumber)")
@@ -67,15 +49,10 @@ struct GameTableView: View {
   }
 
   private func outcomeSection(_ outcome: GameSession.TurnOutcome) -> some View {
-    Section("Latest Result") {
+    Section("Latest Activity") {
       ForEach(Array(outcome.messages.enumerated()), id: \.offset) { _, message in
         Text(message)
       }
-
-      Button("Continue") {
-        session.continueAfterOutcome()
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
     }
   }
 

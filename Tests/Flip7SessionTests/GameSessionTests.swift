@@ -27,24 +27,17 @@ func seededSessionCompletesGame() throws {
   #expect(session.start(with: Deck(drawPile: cards)))
   var checkedStaleInput = false
   var resolvedAction = false
-  var openingOutcomeCount = 0
+  var roundsAnnounced: Set<Int> = []
 
   for _ in 0..<100 {
-    if session.needsHandoff {
-      let stateBeforeConceal = session.state
-      session.conceal()
-      #expect(session.state == stateBeforeConceal)
-      session.revealForCurrentPlayer()
-    }
-
-    if let outcome = session.turnOutcome {
-      if outcome.messages.contains(where: {
+    if let outcome = session.turnOutcome,
+      outcome.messages.contains(where: {
         $0.hasPrefix("Round ") && $0.hasSuffix(" started.")
-      }) {
-        openingOutcomeCount += 1
-      }
-      session.continueAfterOutcome()
-      continue
+      })
+    {
+      // turnOutcome no longer gates play, so it can be observed more than once
+      // per round. Collect round numbers rather than counting sightings.
+      roundsAnnounced.insert(session.state?.roundNumber ?? 0)
     }
 
     let state = try #require(session.state)
@@ -66,7 +59,6 @@ func seededSessionCompletesGame() throws {
         targetPlayerID: frozenPlayerID,
         inputVersion: staleInputVersion
       )
-      session.continueAfterOutcome()
 
       let stateAfterAction = session.state
       let inputVersionAfterAction = session.inputVersion
@@ -85,7 +77,7 @@ func seededSessionCompletesGame() throws {
       #expect(result.winningScore == 209)
       #expect(checkedStaleInput)
       #expect(resolvedAction)
-      #expect(openingOutcomeCount == 2)
+      #expect(roundsAnnounced == [1, 2])
       return
     case .waitingToStartRound, .dealingOpeningCards:
       Issue.record("The engine left a transient phase visible")

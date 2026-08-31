@@ -31,7 +31,6 @@ final class GameSession {
   private(set) var commandError: String?
   private(set) var turnOutcome: TurnOutcome?
   private(set) var inputVersion = 0
-  var revealedPlayerID: PlayerID?
   private(set) var engine: GameEngine?
 
   var state: GameState? {
@@ -67,31 +66,6 @@ final class GameSession {
       return nil
     }
     return state.playerName(for: actingPlayerID)
-  }
-
-  var presentedPlayerID: PlayerID? {
-    turnOutcome?.playerID ?? actingPlayerID
-  }
-
-  var presentedPlayerName: String? {
-    guard let state, let presentedPlayerID else {
-      return nil
-    }
-    return state.playerName(for: presentedPlayerID)
-  }
-
-  var needsHandoff: Bool {
-    guard let presentedPlayerID else {
-      return false
-    }
-    return revealedPlayerID != presentedPlayerID
-  }
-
-  var isPresentedPlayerRevealed: Bool {
-    guard let presentedPlayerID else {
-      return false
-    }
-    return revealedPlayerID == presentedPlayerID
   }
 
   func addPlayer() {
@@ -150,7 +124,6 @@ final class GameSession {
         turnOutcome = nil
       }
       inputVersion += 1
-      revealedPlayerID = nil
       return true
     } catch let error as GameRuleError {
       setupError = message(for: error)
@@ -161,24 +134,15 @@ final class GameSession {
     }
   }
 
-  func revealForCurrentPlayer() {
-    revealedPlayerID = presentedPlayerID
-    announceCurrentView()
-  }
-
-  func conceal() {
-    revealedPlayerID = nil
-  }
-
   func hit(_ playerID: PlayerID, inputVersion: Int) {
-    guard presentedPlayerID == playerID, isPresentedPlayerRevealed else {
+    guard actingPlayerID == playerID else {
       return
     }
     send(.hit(playerID), outcomeOwnerID: playerID, inputVersion: inputVersion)
   }
 
   func stay(_ playerID: PlayerID, inputVersion: Int) {
-    guard presentedPlayerID == playerID, isPresentedPlayerRevealed else {
+    guard actingPlayerID == playerID else {
       return
     }
     send(.stay(playerID), outcomeOwnerID: playerID, inputVersion: inputVersion)
@@ -189,10 +153,7 @@ final class GameSession {
     targetPlayerID: PlayerID,
     inputVersion: Int
   ) {
-    guard let sourcePlayerID = actingPlayerID,
-      presentedPlayerID == sourcePlayerID,
-      isPresentedPlayerRevealed
-    else {
+    guard let sourcePlayerID = actingPlayerID else {
       return
     }
     send(
@@ -206,27 +167,10 @@ final class GameSession {
     send(.startNextRound, outcomeOwnerID: nil, inputVersion: inputVersion)
   }
 
-  func continueAfterOutcome() {
-    guard let outcome = turnOutcome else {
-      return
-    }
-
-    turnOutcome = nil
-    inputVersion += 1
-    if actingPlayerID == outcome.playerID {
-      revealedPlayerID = outcome.playerID
-      announceCurrentView()
-    } else {
-      revealedPlayerID = nil
-      announceHandoff()
-    }
-  }
-
   func resetGame() {
     engine = nil
     commandError = nil
     turnOutcome = nil
-    revealedPlayerID = nil
   }
 
   private func send(
@@ -234,10 +178,7 @@ final class GameSession {
     outcomeOwnerID: PlayerID?,
     inputVersion: Int
   ) {
-    guard inputVersion == self.inputVersion,
-      turnOutcome == nil,
-      var engine
-    else {
+    guard inputVersion == self.inputVersion, var engine else {
       return
     }
 
@@ -268,8 +209,7 @@ final class GameSession {
         {
           turnOutcome = TurnOutcome(playerID: actingPlayerID, messages: messages)
         }
-        revealedPlayerID = nil
-        announceHandoff()
+        announceCurrentView()
       }
     } catch {
       self.inputVersion += 1
@@ -286,7 +226,7 @@ final class GameSession {
       return
     }
 
-    guard let state, let presentedPlayerName else {
+    guard let state, let actingPlayerName else {
       return
     }
 
@@ -294,29 +234,20 @@ final class GameSession {
       switch state.phase {
       case .awaitingTurn(let playerID):
         if state.players.first(where: { $0.id == playerID })?.hasCardInFront == true {
-          "\(presentedPlayerName)'s turn. Available actions: Hit or Stay."
+          "\(actingPlayerName)'s turn. Available actions: Hit or Stay."
         } else {
-          "\(presentedPlayerName)'s turn. Available action: Hit."
+          "\(actingPlayerName)'s turn. Available action: Hit."
         }
       case .awaitingAction(let decision):
-        "\(presentedPlayerName) must choose a target for "
+        "\(actingPlayerName) must choose a target for "
           + "\(decision.card.displayName). Available targets: "
           + decision.legalTargetIDs.map { state.playerName(for: $0) }.joined(separator: ", ")
           + "."
       case .waitingToStartRound, .dealingOpeningCards,
         .roundComplete, .gameComplete:
-        presentedPlayerName
+        actingPlayerName
       }
     AccessibilityNotification.Announcement(message).post()
-  }
-
-  private func announceHandoff() {
-    guard let presentedPlayerName else {
-      return
-    }
-    AccessibilityNotification.Announcement(
-      "Pass the device to \(presentedPlayerName)."
-    ).post()
   }
 
   private func message(for command: GameCommand, in state: GameState) -> String? {

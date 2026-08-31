@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ContentView: View {
-  @Environment(\.scenePhase) private var scenePhase
   @State private var session = GameSession()
   @State private var isShowingSession = false
 
@@ -14,17 +13,12 @@ struct ContentView: View {
       }
       .navigationDestination(isPresented: $isShowingSession) {
         GameTableView(session: session)
-          .navigationTitle(session.needsHandoff ? "Pass the Device" : "Game")
+          .navigationTitle("Game")
       }
       .onChange(of: isShowingSession) { _, isShowing in
         if !isShowing {
           session.resetGame()
         }
-      }
-    }
-    .onChange(of: scenePhase) { _, phase in
-      if phase != .active {
-        session.conceal()
       }
     }
   }
