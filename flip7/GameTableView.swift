@@ -7,20 +7,13 @@ struct GameTableView: View {
   var body: some View {
     if let state = session.state {
       Form {
-        if session.needsHandoff, let playerName = session.presentedPlayerName {
-          handoff(playerName)
-        }
-
         gameStatus(state)
 
-        Group {
-          if let outcome = session.turnOutcome {
-            outcomeSection(outcome)
-          } else {
-            controls(for: state)
-          }
+        if let outcome = session.turnOutcome {
+          outcomeSection(outcome)
         }
-        .disabled(session.needsHandoff)
+
+        controls(for: state)
 
         players(state)
 
@@ -40,14 +33,10 @@ struct GameTableView: View {
     }
   }
 
-  private func handoff(_ playerName: String) -> some View {
-    Section("Pass the Device") {
-      Text("\(playerName)'s turn")
-      Text("Confirm the next player before using the game controls.")
-      Button("I'm \(playerName)") {
-        session.revealForCurrentPlayer()
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
+  private func waitingForOpponent() -> some View {
+    Section("Waiting") {
+      Text(session.actingPlayerName.map { "\($0) is deciding." } ?? "Waiting.")
+        .accessibilityLabel(session.turnPrompt ?? "Waiting for the next player.")
     }
   }
 
@@ -67,21 +56,21 @@ struct GameTableView: View {
   }
 
   private func outcomeSection(_ outcome: GameSession.TurnOutcome) -> some View {
-    Section("Latest Result") {
+    Section("Latest Activity") {
       ForEach(Array(outcome.messages.enumerated()), id: \.offset) { _, message in
         Text(message)
       }
-
-      Button("Continue") {
-        session.continueAfterOutcome()
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
     }
   }
 
   @ViewBuilder
   private func controls(for state: GameState) -> some View {
     switch state.phase {
+    // Hit, Stay and target choices belong to the human seat. Rendering them
+    // enabled on a computer's turn offers buttons that silently do nothing.
+    case .awaitingTurn where !session.isHumanTurn,
+      .awaitingAction where !session.isHumanTurn:
+      waitingForOpponent()
     case .waitingToStartRound:
       Section("Round") {
         Text("Ready to deal.")

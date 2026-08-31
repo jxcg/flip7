@@ -10,40 +10,30 @@ import SwiftUI
 @MainActor
 @Observable
 final class GameSession {
-  struct PlayerDraft: Identifiable, Equatable {
-    let id = UUID()
-    var name: String
-  }
-
   struct TurnOutcome: Equatable {
     let playerID: PlayerID
     let messages: [String]
   }
 
-  var playerDrafts = (1...Ruleset.minimumPlayerCount).map {
-    PlayerDraft(name: "Player \($0)")
-  } {
-    didSet {
-      setupError = nil
-    }
+  var humanName = "Player 1" {
+    didSet { setupError = nil }
   }
+  var opponentCount = Ruleset.minimumPlayerCount - 1 {
+    didSet { setupError = nil }
+  }
+  let humanPlayerID = PlayerID(rawValue: 0)
+  /// Sampled fresh per computer decision, so the table does not tick like a
+  /// metronome. Tests set both bounds to zero.
+  var turnDelayRange: ClosedRange<Duration> = .seconds(2)...(.seconds(4))
+  private(set) var opponentTask: Task<Void, Never>?
   private(set) var setupError: String?
   private(set) var commandError: String?
   private(set) var turnOutcome: TurnOutcome?
   private(set) var inputVersion = 0
-  var revealedPlayerID: PlayerID?
   private(set) var engine: GameEngine?
 
   var state: GameState? {
     engine?.state
-  }
-
-  var canAddPlayer: Bool {
-    playerDrafts.count < Ruleset.maximumPlayerCount
-  }
-
-  var canRemovePlayer: Bool {
-    playerDrafts.count > Ruleset.minimumPlayerCount
   }
 
   var actingPlayerID: PlayerID? {
@@ -62,6 +52,41 @@ final class GameSession {
     }
   }
 
+  /// True when the human seat owns the current decision. Views gate their
+  /// controls on this: a computer's turn must not offer buttons that silently
+  /// do nothing when tapped.
+  var isHumanTurn: Bool {
+    actingPlayerID == humanPlayerID
+  }
+
+  /// What VoiceOver should say about the current decision. Kept separate from
+  /// the outcome so a turn is still announced after a result is shown.
+  var turnPrompt: String? {
+    guard let state else {
+      return nil
+    }
+    switch state.phase {
+    case .awaitingTurn(let playerID):
+      let name = state.playerName(for: playerID)
+      let canStay = state.players.first { $0.id == playerID }?.hasCardInFront == true
+      return canStay
+        ? "\(name)'s turn. Available actions: Hit or Stay."
+        : "\(name)'s turn. Available action: Hit."
+    case .awaitingAction(let decision):
+      let targets = decision.legalTargetIDs
+        .map { state.playerName(for: $0) }
+        .joined(separator: ", ")
+      return "\(state.playerName(for: decision.sourcePlayerID)) must choose a target for "
+        + "\(decision.card.displayName). Available targets: \(targets)."
+    case .roundComplete(let summary):
+      return "Round \(summary.roundNumber) complete."
+    case .gameComplete(let result):
+      return "\(winnerNames(for: result, in: state)) won with \(result.winningScore) points."
+    case .waitingToStartRound, .dealingOpeningCards:
+      return nil
+    }
+  }
+
   var actingPlayerName: String? {
     guard let state = engine?.state, let actingPlayerID else {
       return nil
@@ -69,63 +94,29 @@ final class GameSession {
     return state.playerName(for: actingPlayerID)
   }
 
-  var presentedPlayerID: PlayerID? {
-    turnOutcome?.playerID ?? actingPlayerID
-  }
-
-  var presentedPlayerName: String? {
-    guard let state, let presentedPlayerID else {
-      return nil
-    }
-    return state.playerName(for: presentedPlayerID)
-  }
-
-  var needsHandoff: Bool {
-    guard let presentedPlayerID else {
-      return false
-    }
-    return revealedPlayerID != presentedPlayerID
-  }
-
-  var isPresentedPlayerRevealed: Bool {
-    guard let presentedPlayerID else {
-      return false
-    }
-    return revealedPlayerID == presentedPlayerID
-  }
-
-  func addPlayer() {
-    guard canAddPlayer else {
-      return
-    }
-
-    let names = Set(
-      playerDrafts.map {
-        $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-      })
+  /// `GameEngine` trims and lowercases names and rejects duplicates, so an
+  /// opponent must never be handed the name the human typed. Generating after
+  /// reading the human's name and skipping any match is what keeps the default
+  /// path from failing with a name the player never entered.
+  private func playerNames() -> [String] {
+    let human = humanName.trimmingCharacters(in: .whitespacesAndNewlines)
+    var names = [human]
     var number = 1
-    while names.contains("player \(number)") {
+    while names.count <= opponentCount {
+      let candidate = "Opponent \(number)"
       number += 1
+      if candidate.lowercased() != human.lowercased() {
+        names.append(candidate)
+      }
     }
-    playerDrafts.append(PlayerDraft(name: "Player \(number)"))
-  }
-
-  func removePlayers(at offsets: IndexSet) {
-    guard playerDrafts.count - offsets.count >= Ruleset.minimumPlayerCount else {
-      return
-    }
-    playerDrafts.remove(atOffsets: offsets)
-  }
-
-  func movePlayers(from offsets: IndexSet, to destination: Int) {
-    playerDrafts.move(fromOffsets: offsets, toOffset: destination)
+    return names
   }
 
   func start() -> Bool {
     var generator = SystemRandomNumberGenerator()
     return start {
       try GameEngine(
-        playerNames: playerDrafts.map(\.name),
+        playerNames: playerNames(),
         shufflingWith: &generator
       )
     }
@@ -133,7 +124,7 @@ final class GameSession {
 
   func start(with deck: Deck) -> Bool {
     start {
-      try GameEngine(playerNames: playerDrafts.map(\.name), deck: deck)
+      try GameEngine(playerNames: playerNames(), deck: deck)
     }
   }
 
@@ -150,7 +141,7 @@ final class GameSession {
         turnOutcome = nil
       }
       inputVersion += 1
-      revealedPlayerID = nil
+      scheduleOpponentTurn()
       return true
     } catch let error as GameRuleError {
       setupError = message(for: error)
@@ -161,24 +152,15 @@ final class GameSession {
     }
   }
 
-  func revealForCurrentPlayer() {
-    revealedPlayerID = presentedPlayerID
-    announceCurrentView()
-  }
-
-  func conceal() {
-    revealedPlayerID = nil
-  }
-
   func hit(_ playerID: PlayerID, inputVersion: Int) {
-    guard presentedPlayerID == playerID, isPresentedPlayerRevealed else {
+    guard actingPlayerID == playerID, playerID == humanPlayerID else {
       return
     }
     send(.hit(playerID), outcomeOwnerID: playerID, inputVersion: inputVersion)
   }
 
   func stay(_ playerID: PlayerID, inputVersion: Int) {
-    guard presentedPlayerID == playerID, isPresentedPlayerRevealed else {
+    guard actingPlayerID == playerID, playerID == humanPlayerID else {
       return
     }
     send(.stay(playerID), outcomeOwnerID: playerID, inputVersion: inputVersion)
@@ -189,10 +171,7 @@ final class GameSession {
     targetPlayerID: PlayerID,
     inputVersion: Int
   ) {
-    guard let sourcePlayerID = actingPlayerID,
-      presentedPlayerID == sourcePlayerID,
-      isPresentedPlayerRevealed
-    else {
+    guard let sourcePlayerID = actingPlayerID, sourcePlayerID == humanPlayerID else {
       return
     }
     send(
@@ -206,27 +185,58 @@ final class GameSession {
     send(.startNextRound, outcomeOwnerID: nil, inputVersion: inputVersion)
   }
 
-  func continueAfterOutcome() {
-    guard let outcome = turnOutcome else {
+  /// The command for the acting seat when that seat is computer driven.
+  /// Synchronous and free of timing, so tests drive a whole game in a loop
+  /// without touching `Task`.
+  func opponentCommandIfNeeded() -> GameCommand? {
+    guard let state, let seat = actingPlayerID, seat != humanPlayerID else {
+      return nil
+    }
+    var generator = SystemRandomNumberGenerator()
+    return opponentCommand(for: state, seat: seat, using: &generator)
+  }
+
+  /// Plays one computer decision. Returns false when the acting seat is the
+  /// human or there is nothing to do.
+  @discardableResult
+  func playOpponentTurnIfNeeded() -> Bool {
+    guard let command = opponentCommandIfNeeded(), let seat = actingPlayerID else {
+      return false
+    }
+    send(command, outcomeOwnerID: seat, inputVersion: inputVersion)
+    return true
+  }
+
+  /// Schedules the acting computer seat's turn after a pause, so a human can
+  /// follow what happened. One-shot: nothing loops, and the display returns to
+  /// rest between decisions.
+  private func scheduleOpponentTurn() {
+    opponentTask?.cancel()
+    opponentTask = nil
+    guard let seat = actingPlayerID, seat != humanPlayerID else {
       return
     }
 
-    turnOutcome = nil
-    inputVersion += 1
-    if actingPlayerID == outcome.playerID {
-      revealedPlayerID = outcome.playerID
-      announceCurrentView()
-    } else {
-      revealedPlayerID = nil
-      announceHandoff()
+    let version = inputVersion
+    let low = turnDelayRange.lowerBound
+    let high = turnDelayRange.upperBound
+    let delay = low == high ? low : low + (high - low) * Double.random(in: 0...1)
+
+    opponentTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: delay)
+      guard !Task.isCancelled, let self, self.inputVersion == version else {
+        return
+      }
+      self.playOpponentTurnIfNeeded()
     }
   }
 
   func resetGame() {
+    opponentTask?.cancel()
+    opponentTask = nil
     engine = nil
     commandError = nil
     turnOutcome = nil
-    revealedPlayerID = nil
   }
 
   private func send(
@@ -234,10 +244,7 @@ final class GameSession {
     outcomeOwnerID: PlayerID?,
     inputVersion: Int
   ) {
-    guard inputVersion == self.inputVersion,
-      turnOutcome == nil,
-      var engine
-    else {
+    guard inputVersion == self.inputVersion, var engine else {
       return
     }
 
@@ -268,55 +275,28 @@ final class GameSession {
         {
           turnOutcome = TurnOutcome(playerID: actingPlayerID, messages: messages)
         }
-        revealedPlayerID = nil
-        announceHandoff()
+        announceCurrentView()
       }
+      scheduleOpponentTurn()
     } catch {
       self.inputVersion += 1
       commandError = "That action is no longer available."
       AccessibilityNotification.Announcement(commandError ?? "Action unavailable.").post()
+      // Bumping inputVersion above invalidated any sleeping task, so this must
+      // reschedule or a computer seat on turn hangs the game permanently.
+      scheduleOpponentTurn()
     }
   }
 
   private func announceCurrentView() {
-    if let turnOutcome {
-      AccessibilityNotification.Announcement(
-        turnOutcome.messages.joined(separator: " ")
-      ).post()
+    // Both parts, in one announcement. turnOutcome is never nil after start(),
+    // so announcing only the outcome would never say whose turn it is.
+    let parts = [turnOutcome?.messages.joined(separator: " "), turnPrompt]
+      .compactMap { $0 }
+    guard !parts.isEmpty else {
       return
     }
-
-    guard let state, let presentedPlayerName else {
-      return
-    }
-
-    let message =
-      switch state.phase {
-      case .awaitingTurn(let playerID):
-        if state.players.first(where: { $0.id == playerID })?.hasCardInFront == true {
-          "\(presentedPlayerName)'s turn. Available actions: Hit or Stay."
-        } else {
-          "\(presentedPlayerName)'s turn. Available action: Hit."
-        }
-      case .awaitingAction(let decision):
-        "\(presentedPlayerName) must choose a target for "
-          + "\(decision.card.displayName). Available targets: "
-          + decision.legalTargetIDs.map { state.playerName(for: $0) }.joined(separator: ", ")
-          + "."
-      case .waitingToStartRound, .dealingOpeningCards,
-        .roundComplete, .gameComplete:
-        presentedPlayerName
-      }
-    AccessibilityNotification.Announcement(message).post()
-  }
-
-  private func announceHandoff() {
-    guard let presentedPlayerName else {
-      return
-    }
-    AccessibilityNotification.Announcement(
-      "Pass the device to \(presentedPlayerName)."
-    ).post()
+    AccessibilityNotification.Announcement(parts.joined(separator: " ")).post()
   }
 
   private func message(for command: GameCommand, in state: GameState) -> String? {
@@ -365,9 +345,10 @@ final class GameSession {
   private func message(for error: GameRuleError) -> String {
     switch error {
     case .invalidPlayerCount:
-      "Add between \(Ruleset.minimumPlayerCount) and \(Ruleset.maximumPlayerCount) players."
-    case .emptyPlayerName(let index):
-      "Enter a name for Player \(index + 1)."
+      "Choose between \(Ruleset.minimumPlayerCount - 1) and "
+        + "\(Ruleset.maximumPlayerCount - 1) opponents."
+    case .emptyPlayerName:
+      "Enter your name."
     case .duplicatePlayerName(let name):
       "\(name) is used more than once."
     default:
