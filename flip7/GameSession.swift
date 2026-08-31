@@ -111,9 +111,7 @@ final class GameSession {
   }
 
   func removePlayers(at offsets: IndexSet) {
-    guard canRemovePlayer,
-      playerDrafts.count - offsets.count >= Ruleset.minimumPlayerCount
-    else {
+    guard playerDrafts.count - offsets.count >= Ruleset.minimumPlayerCount else {
       return
     }
     playerDrafts.remove(atOffsets: offsets)
