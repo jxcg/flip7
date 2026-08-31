@@ -7,7 +7,7 @@ import Testing
 @Test("A seeded session plays from setup to a final result")
 func seededSessionCompletesGame() throws {
   let roundOne: [CardKind] = [
-    .number(.twelve), .number(.one), .number(.two),
+    .action(.freeze), .number(.one), .number(.two),
     .scoreModifier(.double), .scoreModifier(.additive(.ten)),
     .number(.eleven), .number(.ten), .number(.nine),
     .number(.eight), .number(.seven), .number(.six),
@@ -21,10 +21,12 @@ func seededSessionCompletesGame() throws {
     GameCard(id: CardID(rawValue: $0.offset), kind: $0.element)
   }
   let winnerID = PlayerID(rawValue: 1)
+  let frozenPlayerID = PlayerID(rawValue: 2)
   let session = GameSession()
 
   #expect(session.start(with: Deck(drawPile: cards)))
   var checkedStaleInput = false
+  var resolvedAction = false
   var openingOutcomeCount = 0
 
   for _ in 0..<100 {
@@ -64,14 +66,20 @@ func seededSessionCompletesGame() throws {
       }
     case .roundComplete:
       session.startNextRound(inputVersion: session.inputVersion)
+    case .awaitingAction(let decision):
+      #expect(decision.card.kind == .action(.freeze))
+      session.chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: frozenPlayerID,
+        inputVersion: session.inputVersion
+      )
+      resolvedAction = true
     case .gameComplete(let result):
       #expect(result.winnerIDs == [winnerID])
-      #expect(result.winningScore == 229)
+      #expect(result.winningScore == 209)
       #expect(checkedStaleInput)
+      #expect(resolvedAction)
       #expect(openingOutcomeCount == 2)
-      return
-    case .awaitingAction:
-      Issue.record("The seeded deck contains no action cards")
       return
     case .waitingToStartRound, .dealingOpeningCards:
       Issue.record("The engine left a transient phase visible")
