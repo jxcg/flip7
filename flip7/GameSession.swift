@@ -21,7 +21,7 @@ final class GameSession {
   var opponentCount = Ruleset.minimumPlayerCount - 1 {
     didSet { setupError = nil }
   }
-  private(set) var humanPlayerID = PlayerID(rawValue: 0)
+  let humanPlayerID = PlayerID(rawValue: 0)
   /// Sampled fresh per computer decision, so the table does not tick like a
   /// metronome. Tests set both bounds to zero.
   var turnDelayRange: ClosedRange<Duration> = .seconds(2)...(.seconds(4))
@@ -50,6 +50,19 @@ final class GameSession {
       .roundComplete, .gameComplete:
       nil
     }
+  }
+
+  /// True when the human seat owns the current decision. Views gate their
+  /// controls on this: a computer's turn must not offer buttons that silently
+  /// do nothing when tapped.
+  var isHumanTurn: Bool {
+    actingPlayerID == humanPlayerID
+  }
+
+  /// What VoiceOver should say about the current decision. Kept separate from
+  /// the outcome so a turn is still announced after a result is shown.
+  var turnPrompt: String? {
+    nil
   }
 
   var actingPlayerName: String? {

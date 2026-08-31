@@ -124,3 +124,121 @@ func pacedDriverRunsAndCancels() async throws {
   #expect(session.opponentTask == nil)
   #expect(session.state == nil)
 }
+
+@MainActor
+@Test("A rejected command does not strand the computer turn driver")
+func rejectedCommandDoesNotStallTheDriver() async throws {
+  let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
+  session.opponentCount = 2
+  #expect(session.start(with: .canonical))
+  try #require(session.actingPlayerID != session.humanPlayerID)
+
+  // startNextRound is the one entry point with no seat guard, so the engine
+  // rejects it here. The catch path bumps inputVersion, which invalidates any
+  // sleeping task, so it must reschedule or the game hangs forever.
+  session.startNextRound(inputVersion: session.inputVersion)
+  #expect(session.commandError != nil)
+  try #require(session.actingPlayerID != session.humanPlayerID)
+
+  // A non-nil task is not enough: a stale one returns without acting. Awaiting
+  // it must actually advance the game.
+  let versionAtRest = session.inputVersion
+  await session.opponentTask?.value
+  #expect(
+    session.inputVersion > versionAtRest,
+    "computer seat on turn and the driver never advanced it"
+  )
+}
+
+@MainActor
+@Test("The turn prompt names the active player and the available actions")
+func turnPromptDescribesTheCurrentDecision() throws {
+  let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
+  session.opponentCount = 2
+  #expect(session.start(with: .canonical))
+
+  // A prompt must exist for every acting phase, not only before the first
+  // outcome. VoiceOver has nothing else to announce the turn with.
+  var sawPrompt = false
+  for _ in 0..<400 {
+    guard let state = session.state else { break }
+    if case .gameComplete = state.phase { break }
+    if case .roundComplete = state.phase {
+      session.startNextRound(inputVersion: session.inputVersion)
+      continue
+    }
+    let prompt = try #require(session.turnPrompt, "no prompt for phase \(state.phase)")
+    #expect(!prompt.isEmpty)
+    if let name = session.actingPlayerName {
+      #expect(prompt.contains(name))
+    }
+    sawPrompt = true
+    if session.playOpponentTurnIfNeeded() { continue }
+    let seat = try #require(session.actingPlayerID)
+    if case .awaitingAction(let decision) = state.phase {
+      session.chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: try #require(decision.legalTargetIDs.first),
+        inputVersion: session.inputVersion
+      )
+    } else if state.players.first(where: { $0.id == seat })?.hasCardInFront == true {
+      session.stay(seat, inputVersion: session.inputVersion)
+    } else {
+      session.hit(seat, inputVersion: session.inputVersion)
+    }
+  }
+  #expect(sawPrompt)
+}
+
+@MainActor
+@Test("Controls are only offered on the human's turn")
+func controlsOnlyOnHumanTurn() throws {
+  let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
+  session.opponentCount = 2
+  #expect(session.start(with: .canonical))
+  try #require(session.actingPlayerID != session.humanPlayerID)
+  #expect(!session.isHumanTurn)
+
+  advanceToHumanTurn(session)
+  #expect(session.isHumanTurn)
+}
+
+@MainActor
+@Test("Chained computer turns run through the async driver to a final result")
+func chainedAsyncTurnsComplete() async throws {
+  let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
+  session.opponentCount = 3
+  #expect(session.start(with: .canonical))
+
+  for _ in 0..<5_000 {
+    guard let state = session.state else { break }
+    if case .gameComplete = state.phase { return }
+    if case .roundComplete = state.phase {
+      session.startNextRound(inputVersion: session.inputVersion)
+      continue
+    }
+    if let task = session.opponentTask {
+      // Driven entirely through the async path, never the sync helper.
+      await task.value
+      continue
+    }
+    let seat = try #require(session.actingPlayerID)
+    try #require(seat == session.humanPlayerID)
+    if case .awaitingAction(let decision) = state.phase {
+      session.chooseActionTarget(
+        cardID: decision.card.id,
+        targetPlayerID: try #require(decision.legalTargetIDs.first),
+        inputVersion: session.inputVersion
+      )
+    } else if state.players.first(where: { $0.id == seat })?.hasCardInFront == true {
+      session.stay(seat, inputVersion: session.inputVersion)
+    } else {
+      session.hit(seat, inputVersion: session.inputVersion)
+    }
+  }
+  Issue.record("the async driver did not reach a final result")
+}
