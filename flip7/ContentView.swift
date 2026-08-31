@@ -13,7 +13,6 @@ struct ContentView: View {
       }
       .navigationDestination(isPresented: $isShowingSession) {
         GameTableView(session: session)
-          .navigationTitle("Game")
       }
       .onChange(of: isShowingSession) { _, isShowing in
         if !isShowing {

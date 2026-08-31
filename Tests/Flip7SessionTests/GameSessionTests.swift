@@ -248,3 +248,27 @@ func chainedAsyncTurnsComplete() async throws {
   }
   Issue.record("the async driver did not reach a final result")
 }
+
+@MainActor
+@Test("A blank name is a normal choice, not an error")
+func blankNameStartsAsYou() throws {
+  let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
+  #expect(session.humanName.isEmpty, "the field starts empty so the placeholder shows")
+  #expect(session.start(with: .canonical))
+  #expect(session.setupError == nil)
+  let state = try #require(session.state)
+  #expect(state.playerName(for: session.humanPlayerID) == "You")
+}
+
+@MainActor
+@Test("A typed name is used and never duplicated by an opponent")
+func typedNameIsKept() throws {
+  let session = GameSession()
+  session.turnDelayRange = .zero ... .zero
+  session.humanName = "  Opponent 1  "
+  #expect(session.start(with: .canonical))
+  let names = try #require(session.state).players.map(\.name)
+  #expect(names.first == "Opponent 1")
+  #expect(Set(names.map { $0.lowercased() }).count == names.count)
+}

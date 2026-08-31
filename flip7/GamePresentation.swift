@@ -37,9 +37,9 @@ extension GameCard {
     case .action(.freeze):
       "snowflake"
     case .action(.flipThree):
-      "arrow.triangle.2.circlepath"
+      "arrow.trianglehead.2.clockwise"
     case .action(.secondChance):
-      "shield"
+      "shield.lefthalf.filled"
     }
   }
 }

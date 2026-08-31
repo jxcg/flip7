@@ -15,7 +15,7 @@ final class GameSession {
     let messages: [String]
   }
 
-  var humanName = "Player 1" {
+  var humanName = "" {
     didSet { setupError = nil }
   }
   var opponentCount = Ruleset.minimumPlayerCount - 1 {
@@ -99,7 +99,9 @@ final class GameSession {
   /// reading the human's name and skipping any match is what keeps the default
   /// path from failing with a name the player never entered.
   private func playerNames() -> [String] {
-    let human = humanName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let typed = humanName.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Leaving it blank is a normal choice in a solo game, not an error.
+    let human = typed.isEmpty ? "You" : typed
     var names = [human]
     var number = 1
     while names.count <= opponentCount {

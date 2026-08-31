@@ -1,110 +1,252 @@
 import SwiftUI
 
+#if SWIFT_PACKAGE
+  import Flip7Core
+#endif
+
 struct GameTableView: View {
   let session: GameSession
   @AccessibilityFocusState private var isCommandErrorFocused: Bool
+  /// Card height plus breathing room. Tracks the numeral so the row grows with
+  /// Dynamic Type instead of clipping.
+  @ScaledMetric(relativeTo: .largeTitle) private var handHeight: Double = 104
 
   var body: some View {
     if let state = session.state {
-      Form {
-        gameStatus(state)
-
-        if let outcome = session.turnOutcome {
-          outcomeSection(outcome)
+      VStack(spacing: 0) {
+        // The active player owns the top of the screen; opponents compress to
+        // one row each and sit just above the thumb zone.
+        ScrollView {
+          activeHand(state)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
+        .scrollBounceBehavior(.basedOnSize)
 
-        controls(for: state)
+        Spacer(minLength: 12)
 
-        players(state)
+        opponents(state)
+          .padding(.horizontal, 16)
+          .padding(.bottom, 12)
 
-        if let commandError = session.commandError {
-          Section("Action Error") {
-            Text(commandError)
-              .foregroundStyle(.red)
-              .accessibilityFocused($isCommandErrorFocused)
-          }
-        }
+        actionBar(state)
       }
+      .background(TablePalette.table)
+      .navigationTitle("Round \(state.roundNumber)")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { chrome(state) }
       .onChange(of: session.commandError) { _, error in
         isCommandErrorFocused = error != nil
       }
     } else {
-      Text("The game isn't available.")
-    }
-  }
-
-  private func waitingForOpponent() -> some View {
-    Section("Waiting") {
-      Text(session.actingPlayerName.map { "\($0) is deciding." } ?? "Waiting.")
-        .accessibilityLabel(session.turnPrompt ?? "Waiting for the next player.")
-    }
-  }
-
-  private func gameStatus(_ state: GameState) -> some View {
-    Section("Game") {
-      LabeledContent("Round", value: "\(state.roundNumber)")
-      LabeledContent("Dealer", value: state.playerName(for: state.dealerID))
-      LabeledContent(
-        "Deck",
-        value: "\(state.deck.remainingCount) remaining, "
-          + "\(state.deck.discardedCount) discarded"
+      ContentUnavailableView(
+        "No game",
+        systemImage: "rectangle.on.rectangle.slash",
+        description: Text("Start a new game to play.")
       )
-      if let actingPlayerName = session.actingPlayerName {
-        LabeledContent("Decision maker", value: actingPlayerName)
-      }
     }
   }
 
-  private func outcomeSection(_ outcome: GameSession.TurnOutcome) -> some View {
-    Section("Latest Activity") {
-      ForEach(Array(outcome.messages.enumerated()), id: \.offset) { _, message in
-        Text(message)
+  // MARK: Chrome
+
+  @ToolbarContentBuilder
+  private func chrome(_ state: GameState) -> some ToolbarContent {
+    ToolbarItem(placement: .topBarTrailing) {
+      // Set as machine output: a readout that changes.
+      // A readout that changes, set as machine output.
+      Label("\(state.deck.remainingCount)", systemImage: "rectangle.stack")
+        .font(.footnote.monospaced())
+        .foregroundStyle(.secondary)
+        .labelStyle(.titleAndIcon)
+        .accessibilityLabel("\(state.deck.remainingCount) cards left in the deck")
+    }
+  }
+
+  // MARK: The player
+
+  @ViewBuilder
+  private func activeHand(_ state: GameState) -> some View {
+    if let you = state.players.first(where: { $0.id == session.humanPlayerID }) {
+      VStack(alignment: .leading, spacing: 12) {
+        hand(for: you)
+        RailView(held: Set(you.roundCards.numberValues))
+        HStack(alignment: .firstTextBaseline) {
+          Text(you.name)
+            .font(.body.weight(.semibold))
+          if you.status != .active {
+            Text(you.status.displayName)
+              .font(.caption.weight(.semibold))
+              .padding(.horizontal, 8)
+              .padding(.vertical, 2)
+              .background(Capsule().fill(Color(.tertiarySystemFill)))
+          }
+          Spacer()
+          Text("\(you.bankedScore + you.roundScore.total)")
+            .font(.body.monospacedDigit().weight(.semibold))
+            .accessibilityLabel(
+              "\(you.bankedScore) banked, \(you.roundScore.total) this round")
+        }
       }
     }
   }
 
   @ViewBuilder
-  private func controls(for state: GameState) -> some View {
+  private func hand(for player: PlayerState) -> some View {
+    let cards = player.roundCards.cards + [player.secondChance].compactMap { $0 }
+    if cards.isEmpty {
+      Text("No cards yet")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .frame(height: handHeight, alignment: .leading)
+    } else {
+      ScrollView(.horizontal, showsIndicators: false) {
+        LazyHStack(spacing: 8) {
+          ForEach(cards) { card in
+            CardView(card: card, isDrained: player.status == .busted)
+          }
+        }
+        .padding(.vertical, 4)
+      }
+      .frame(height: handHeight)
+    }
+  }
+
+  // MARK: Opponents
+
+  private func opponents(_ state: GameState) -> some View {
+    VStack(spacing: 0) {
+      ForEach(state.players.filter { $0.id != session.humanPlayerID }) { player in
+        opponentRow(player, isActing: player.id == session.actingPlayerID)
+        if player.id != state.players.last?.id {
+          Divider().overlay(Color(.separator))
+        }
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 4)
+    .background(
+      RoundedRectangle(cornerRadius: 22, style: .continuous)
+        .fill(TablePalette.surface)
+    )
+  }
+
+  /// Opponents compress to one row each so nine players still fit. The one
+  /// currently acting expands to real cards: in solo play you watch every
+  /// opponent turn, and a single dot appearing is a thin thing to wait for.
+  private func opponentRow(_ player: PlayerState, isActing: Bool) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 10) {
+        Text(player.name)
+          .font(.subheadline.weight(isActing ? .semibold : .regular))
+          .lineLimit(1)
+        if !isActing {
+          hueDots(for: player)
+        }
+        Spacer(minLength: 8)
+        if player.status != .active {
+          Text(player.status.displayName)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+        Text("\(player.bankedScore + player.roundScore.total)")
+          .font(.subheadline.monospacedDigit())
+          .foregroundStyle(.secondary)
+      }
+      if isActing {
+        hand(for: player)
+      }
+    }
+    .padding(.vertical, 10)
+    .accessibilityElement(children: .combine)
+  }
+
+  private func hueDots(for player: PlayerState) -> some View {
+    HStack(spacing: 3) {
+      ForEach(player.roundCards.cards) { card in
+        Circle()
+          .fill(dotColor(for: card, isBusted: player.status == .busted))
+          .frame(width: 8, height: 8)
+      }
+    }
+    .accessibilityHidden(true)
+  }
+
+  private func dotColor(for card: GameCard, isBusted: Bool) -> Color {
+    guard !isBusted else {
+      return Color(.label).opacity(0.2)
+    }
+    if case .number(let value) = card.kind {
+      return CardPalette.rail(for: value.rawValue)
+    }
+    return Color(.label).opacity(0.45)
+  }
+
+  // MARK: The action bar
+
+  @ViewBuilder
+  private func actionBar(_ state: GameState) -> some View {
+    VStack(spacing: 10) {
+      if let message = session.turnOutcome?.messages.last {
+        Text(message)
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .lineLimit(2)
+      }
+      if let commandError = session.commandError {
+        Text(commandError)
+          .font(.footnote)
+          .foregroundStyle(Color(.systemRed))
+          .accessibilityFocused($isCommandErrorFocused)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      controls(state)
+    }
+    .padding(.horizontal, 16)
+    .padding(.top, 12)
+    .padding(.bottom, 8)
+    .background(.regularMaterial)
+  }
+
+  @ViewBuilder
+  private func controls(_ state: GameState) -> some View {
     switch state.phase {
-    // Hit, Stay and target choices belong to the human seat. Rendering them
-    // enabled on a computer's turn offers buttons that silently do nothing.
-    case .awaitingTurn where !session.isHumanTurn,
-      .awaitingAction where !session.isHumanTurn:
-      waitingForOpponent()
-    case .waitingToStartRound:
-      Section("Round") {
-        Text("Ready to deal.")
-      }
-    case .dealingOpeningCards:
-      Section("Round") {
-        Text("Dealing opening cards.")
-      }
-    case .awaitingTurn(let playerID):
+    case .awaitingTurn(let playerID) where session.isHumanTurn:
       turnControls(playerID: playerID, state: state)
-    case .awaitingAction(let decision):
+    case .awaitingAction(let decision) where session.isHumanTurn:
       targetControls(decision: decision, state: state)
+    case .awaitingTurn, .awaitingAction:
+      waiting()
     case .roundComplete(let summary):
       roundSummary(summary, state: state)
     case .gameComplete(let result):
       gameResult(result, state: state)
+    case .waitingToStartRound, .dealingOpeningCards:
+      waiting()
     }
+  }
+
+  private func waiting() -> some View {
+    Text(session.actingPlayerName.map { "\($0) is deciding" } ?? "Dealing")
+      .font(.subheadline)
+      .foregroundStyle(.secondary)
+      .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+      .accessibilityLabel(session.turnPrompt ?? "Waiting")
   }
 
   private func turnControls(playerID: PlayerID, state: GameState) -> some View {
     let inputVersion = session.inputVersion
     let canStay = state.players.first { $0.id == playerID }?.hasCardInFront == true
-    return Section("Available Actions") {
-      Button("Hit") {
-        session.hit(playerID, inputVersion: inputVersion)
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
-
-      Button("Stay") {
-        session.stay(playerID, inputVersion: inputVersion)
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
-      .disabled(!canStay)
+    return HStack(spacing: 12) {
+      Button("Stay") { session.stay(playerID, inputVersion: inputVersion) }
+        .buttonStyle(.bordered)
+        .disabled(!canStay)
+      Button("Hit") { session.hit(playerID, inputVersion: inputVersion) }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity)
     }
+    .controlSize(.large)
+    .frame(minHeight: 50)
   }
 
   private func targetControls(
@@ -112,107 +254,46 @@ struct GameTableView: View {
     state: GameState
   ) -> some View {
     let inputVersion = session.inputVersion
-    return Section("Choose \(decision.card.displayName) Target") {
-      ForEach(decision.legalTargetIDs, id: \.self) { playerID in
-        Button(state.playerName(for: playerID)) {
-          session.chooseActionTarget(
-            cardID: decision.card.id,
-            targetPlayerID: playerID,
-            inputVersion: inputVersion
-          )
+    return VStack(alignment: .leading, spacing: 8) {
+      Text("Give \(decision.card.displayName) to")
+        .font(.footnote.weight(.semibold))
+        .frame(maxWidth: .infinity, alignment: .leading)
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 8) {
+          ForEach(decision.legalTargetIDs, id: \.self) { playerID in
+            Button(state.playerName(for: playerID)) {
+              session.chooseActionTarget(
+                cardID: decision.card.id,
+                targetPlayerID: playerID,
+                inputVersion: inputVersion
+              )
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel(
+              "Give \(decision.card.displayName) to \(state.playerName(for: playerID))")
+          }
         }
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .accessibilityLabel(
-          "Give \(decision.card.displayName) to \(state.playerName(for: playerID))"
-        )
       }
     }
+    .controlSize(.large)
+    .frame(minHeight: 50)
   }
 
-  private func roundSummary(
-    _ summary: RoundSummary,
-    state: GameState
-  ) -> some View {
+  private func roundSummary(_ summary: RoundSummary, state: GameState) -> some View {
     let inputVersion = session.inputVersion
-    return Section("Round \(summary.roundNumber) Result") {
-      Text(roundEndText(summary.reason, state: state))
-
-      ForEach(summary.playerResults, id: \.playerID) { result in
-        LabeledContent(
-          state.playerName(for: result.playerID),
-          value: "\(result.score.total) this round, "
-            + "\(result.newBankedScore) total"
-        )
-      }
-
-      Button("Start Next Round") {
-        session.startNextRound(inputVersion: inputVersion)
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
+    return Button("Start round \(summary.roundNumber + 1)") {
+      session.startNextRound(inputVersion: inputVersion)
     }
+    .buttonStyle(.borderedProminent)
+    .controlSize(.large)
+    .frame(maxWidth: .infinity, minHeight: 50)
   }
 
   private func gameResult(_ result: GameResult, state: GameState) -> some View {
-    let winners = result.winnerIDs.map { state.playerName(for: $0) }.joined(separator: ", ")
-    return Section("Final Result") {
-      Text("\(winners) won with \(result.winningScore) points.")
-    }
-  }
-
-  private func players(_ state: GameState) -> some View {
-    Section("Players") {
-      ForEach(state.players) { player in
-        PlayerTableRow(
-          player: player,
-          isDealer: player.id == state.dealerID,
-          isDecisionMaker: player.id == session.actingPlayerID
-        )
-      }
-    }
-  }
-
-  private func roundEndText(_ reason: RoundEndReason, state: GameState) -> String {
-    switch reason {
-    case .allPlayersInactive:
-      "No active players remain."
-    case .flipSeven(let playerID):
-      "\(state.playerName(for: playerID)) revealed seven different number cards."
-    }
-  }
-}
-
-private struct PlayerTableRow: View {
-  let player: PlayerState
-  let isDealer: Bool
-  let isDecisionMaker: Bool
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(player.name)
-        .font(.headline)
-
-      if isDealer {
-        Label("Dealer", systemImage: "person.circle")
-      }
-      if isDecisionMaker {
-        Label("Decision maker", systemImage: "arrow.right.circle")
-      }
-
-      Label(player.status.displayName, systemImage: player.status.systemImage)
-      Text("Total score: \(player.bankedScore)")
-      Text("Round score: \(player.roundScore.total)")
-
-      if player.roundCards.cards.isEmpty, player.secondChance == nil {
-        Text("No cards")
-      } else {
-        ForEach(player.roundCards.cards) { card in
-          Label(card.displayName, systemImage: card.systemImage)
-        }
-        if let secondChance = player.secondChance {
-          Label(secondChance.displayName, systemImage: secondChance.systemImage)
-        }
-      }
-    }
-    .accessibilityElement(children: .contain)
+    let winners = result.winnerIDs.map { state.playerName(for: $0) }
+      .joined(separator: ", ")
+    return Text("\(winners) won with \(result.winningScore)")
+      .font(.headline)
+      .frame(maxWidth: .infinity, minHeight: 50)
   }
 }
