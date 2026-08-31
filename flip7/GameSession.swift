@@ -3,6 +3,10 @@ import Foundation
 import Observation
 import SwiftUI
 
+#if SWIFT_PACKAGE
+  import Flip7Core
+#endif
+
 @MainActor
 @Observable
 final class GameSession {
@@ -260,6 +264,13 @@ final class GameSession {
           outcomeMessages.joined(separator: " ")
         ).post()
       } else {
+        let messages = events.compactMap { message(for: $0, in: engine.state) }
+        if command == .startNextRound,
+          let actingPlayerID,
+          !messages.isEmpty
+        {
+          turnOutcome = TurnOutcome(playerID: actingPlayerID, messages: messages)
+        }
         revealedPlayerID = nil
         announceHandoff()
       }
@@ -284,8 +295,12 @@ final class GameSession {
 
     let message =
       switch state.phase {
-      case .awaitingTurn:
-        "\(presentedPlayerName)'s turn. Available actions: Hit or Stay."
+      case .awaitingTurn(let playerID):
+        if state.players.first(where: { $0.id == playerID })?.hasCardInFront == true {
+          "\(presentedPlayerName)'s turn. Available actions: Hit or Stay."
+        } else {
+          "\(presentedPlayerName)'s turn. Available action: Hit."
+        }
       case .awaitingAction(let decision):
         "\(presentedPlayerName) must choose a target for "
           + "\(decision.card.displayName). Available targets: "
@@ -325,6 +340,8 @@ final class GameSession {
       "The discard pile was reshuffled."
     case .cardDrawn(let playerID, let card):
       "\(state.playerName(for: playerID)) drew \(card.displayName)."
+    case .cardDiscarded(let card):
+      "\(card.displayName) was discarded."
     case .secondChanceGranted(let playerID, _):
       "\(state.playerName(for: playerID)) received Second Chance."
     case .secondChanceUsed(let playerID, _, _):

@@ -1,3 +1,7 @@
+#if SWIFT_PACKAGE
+  import Flip7Core
+#endif
+
 extension GameState {
   func playerName(for playerID: PlayerID) -> String {
     players.first { $0.id == playerID }?.name ?? "Player \(playerID.rawValue + 1)"

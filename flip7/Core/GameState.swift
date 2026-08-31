@@ -131,6 +131,7 @@ public enum GameEvent: Equatable, Codable, Sendable {
   case roundStarted(roundNumber: Int, dealerID: PlayerID)
   case deckRecycled
   case cardDrawn(playerID: PlayerID, card: GameCard)
+  case cardDiscarded(GameCard)
   case secondChanceGranted(playerID: PlayerID, card: GameCard)
   case secondChanceUsed(playerID: PlayerID, card: GameCard, duplicate: GameCard)
   case playerStayed(PlayerID)

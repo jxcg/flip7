@@ -431,6 +431,7 @@ public struct GameEngine: Equatable, Codable, Sendable {
 
       if legalTargetIDs.isEmpty {
         state.deck.discard(card)
+        events.append(.cardDiscarded(card))
         return .resolved
       }
 
