@@ -1,8 +1,8 @@
 # Flip 7 — design language
 
-**Status:** working reference, deliberately untracked and excluded via
-`.git/info/exclude`. Nothing here is binding until it lands in a GitHub issue
-with acceptance criteria.
+**Status:** working reference, tracked in the repository so it is backed up and
+reviewable. Tracking is not approval: nothing here is binding until it lands in a
+GitHub issue with acceptance criteria, and issue #6 has not started.
 
 **Owner decisions already made** (do not relitigate without a new decision):
 quiet-native chrome with energy banked for key moments; typographic card faces;
@@ -266,14 +266,14 @@ information rather than decoration.
 - Action bar sits in the thumb arc. Hit is `.glassProminent`; Stay is `.glass`.
   Hit is on the right because it is the repeated action.
 
-**Turn handoff — removed.** The owner decided on 31 August 2026 that solo play
+**Turn handoff, removed.** The owner decided on 31 August 2026 that solo play
 against computer opponents is the only mode the interface offers for the first
 release, so there is no device to pass and no handoff screen to design. The
 reasoning that got here still holds and is worth keeping: Flip 7 has no hidden
 information, every card is face up, so a handoff was only ever a turn gate and
 never a privacy veil. That is what made it cheap to delete.
 
-**Open question — opponent rendering.** Opponents compress to hue dots below
+**Open question: opponent rendering.** Opponents compress to hue dots below
 because pass-and-play meant nobody watched an opponent's turn; you handed the
 phone over and looked away. Solo play inverts that. You now watch every opponent
 turn at 2-4 seconds a decision, and the entire visible event is one more dot
@@ -324,12 +324,19 @@ haptics and sound. SwiftUI stays a renderer, the core stays ignorant of all thre
 | `flipSeven` | `.success`, then `.impact(.heavy)` 120 ms later | *needs custom asset* | chroma bloom |
 | `roundEnded` | `.levelChange` | — | tally count-up |
 | `gameEnded` | `.success` | — | standings reveal |
-| opponent turn begins | `.selection` | — | active-row cue, one shot |
 
 The two-beat on `flipSeven` (success, pause, heavy impact) is the only compound
 haptic in the app. It is the physical equivalent of the chroma bloom.
 
-### Sound — read this before implementing
+Two gaps in that claim, both real. There is no turn-change event, so an
+opponent-turn cue has to come from the view layer observing the acting seat
+rather than from `GameEvent`. And there is no freeze event at all: the
+`.chooseActionTarget` branch for `.freeze` sets `player.status = .frozen` and
+appends nothing, so the 500 ms freeze motion in §8 and the freeze announcement
+required by §12 have nothing to fire from. Adding `playerFrozen` is a core change
+and belongs to its own issue.
+
+### Sound, read this before implementing
 
 Constrained to system sounds for now, per owner instruction. Findings:
 
@@ -465,7 +472,7 @@ issue that touches UI:
 
 ## 12. Accessibility contract
 
-Treated as correctness, per `MVP.md`, not as a polish pass.
+Treated as correctness, per `docs/PRODUCT.md`, not as a polish pass.
 
 - Every card is one accessibility element: *"Seven. Third card."* New cards
   announce via `AccessibilityNotification.Announcement`.
@@ -500,8 +507,8 @@ Treated as correctness, per `MVP.md`, not as a polish pass.
 1. iPad shared-table layout (a tablet flat on a table is a different design
    problem, possibly multi-orientation card faces).
 2. iPhone landscape.
-3. Five custom sound assets (§9) — also resolves open MVP decision #3.
-4. App icon and wordmark. Blocked on the naming/licensing decision in `MVP.md`.
+3. Five custom sound assets (§9) — also resolves the sound decision left open in #19.
+4. App icon and wordmark. Blocked on the final naming and clearance decision, which is issue #10.
 5. Live deck-remaining widths on the Rail. v1 uses static deck composition, which
    is public information printed on the box; live counts edge toward a play aid
    and need an owner decision.

@@ -9,7 +9,7 @@ Deliver a polished, complete native iOS game that implements the full approved r
 - Solo play against computer opponents is the only mode the interface offers for the first release. Local pass-and-play is owner-declined as of 31 August 2026, superseding the earlier decision in #19 and the handoff work shipped in #5 and #7.
 - Nearby-device play will be studied without a hosted server when two owner-approved physical devices are available. Shipping it remains a later decision based on that evidence.
 - Private internet games and public matchmaking are scheduled later and do not block the first release.
-- A complete base game will support 3–9 named players.
+- The rules support 3 to 9 seats. The interface seats one named human plus 2 to 8 computer opponents, which is the same range.
 - The rules implementation will cover the approved 94-card deck: number cards, score modifiers, Freeze, Flip Three, and Second Chance.
 - The app will own dealing, legal choices, action targeting, scoring, round transitions, and victory detection.
 - `Flip7` is the private repository working title. The repository and internal code names remain unchanged unless separately approved.

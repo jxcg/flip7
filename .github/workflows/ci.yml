@@ -33,5 +33,8 @@ jobs:
       - name: Test game rules
         run: swift test -Xswiftc -warnings-as-errors
 
+      - name: Check the design palette
+        run: python3 docs/palette_check.py
+
       - name: Build app without signing
         run: xcodebuild -project flip7.xcodeproj -scheme flip7 -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/flip7-derived-data CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build

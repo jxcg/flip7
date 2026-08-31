@@ -1,7 +1,8 @@
 # Computer opponents and solo play
 
 **Status:** approved design, not yet implemented. Supersedes the pass-and-play
-decisions recorded in issue #19 and the handoff work shipped in issue #5.
+decisions recorded in issue #19 and the handoff work shipped in issues #5 and
+#7.
 
 ## Context
 
@@ -124,12 +125,18 @@ and banks their round score**. Freezing the round leader hands them their
 points. The value of a Freeze is denying future growth, not punishing a current
 total.
 
-- **Freeze** maximises denied future gain minus the score it locks in. The
-  strongest target is an active player close to seven unique numbers.
-- **Flip Three** picks the legal target most likely to bust across three forced
-  draws, which correlates with how many numbers they already hold.
-- **Second Chance** is kept when self-targeting is legal. When it is not, it
-  goes to the active player it helps least, meaning the fewest cards in front.
+**Freeze** maximises denied future gain minus the score it locks in, so the
+strongest target is an active player close to seven unique numbers. **Flip
+Three** picks the legal target most likely to bust across three forced draws,
+which correlates with how many numbers they already hold.
+
+**Second Chance is never kept.** `GameEngine.swift:411` auto-keeps a drawn Second
+Chance when the drawer holds none, returning `.resolved` before targeting ever
+happens. Targeting is therefore reached only when the drawer already holds one,
+and `legalTargetIDs` excludes every player who holds one, so the drawer is never
+among their own legal targets. The card must be given away, and it goes to the
+active player it helps least, meaning the fewest cards in front. A policy branch
+for self-targeting would be unreachable and must not be written.
 
 Targets are evaluated on merit across every legal target with no special case
 for the human seat, which is what spreads incoming actions across the table
@@ -170,11 +177,11 @@ guard was belt-and-braces for the handoff flow that is going away.
 
 ### Changed
 
-- `turnOutcome` stops gating and becomes a display-only latest-activity line for
-  every actor. VoiceOver announcements are unaffected; they already fire from
-  `send`.
-- Setup replaces the editable player list with one name field and a 2-8 opponent
-  stepper.
+`turnOutcome` stops gating and becomes a display-only latest-activity line for
+every actor. VoiceOver announcements are unaffected; they already fire from
+`send`. Setup replaces the editable player list with one name field and a 2-8
+opponent stepper.
+
 - Opponent names are generated **after** reading the human's name, skipping any
   candidate that normalizes to it. `GameEngine` trims and lowercases names and
   throws `duplicatePlayerName` on a collision, so generating first would fail on
@@ -252,5 +259,5 @@ and its tests. Depends on A.
 Covers: strategy, fairness, deterministic testing.
 
 **C. [UI] Solo setup, computer turn pacing, and handoff removal.** The setup
-screen, the turn driver, and the deletions. Depends on B and on #7 merging.
+screen, the turn driver, and the deletions. Depends on B. #7 merged as `c1c5762`.
 Covers: performance.

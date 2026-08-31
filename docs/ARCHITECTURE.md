@@ -9,7 +9,7 @@ SwiftUI views
             -> immutable game state + emitted events
 ```
 
-`Flip7Core` is a Swift Package compiled independently of the app. It owns card identity, deck order, commands, legal targets, game state, rule invariants, and scoring. It imports no SwiftUI types and accepts injected deck order so every transition can be reproduced in tests.
+`Flip7Core` is a Swift Package compiled independently of the app. It owns card identity, deck order, commands, legal targets, game state, rule invariants, and scoring. It also holds the opponent decision policy, which is platform-independent and returns a command the engine is free to reject. A policy is not a rule and must never become one. It imports no SwiftUI types and accepts injected deck order so every transition can be reproduced in tests.
 
 The app target owns navigation, seat ownership, turn pacing, animation, haptics, accessibility wording, and persistence orchestration. Views display engine state and send commands; they do not duplicate rules.
 

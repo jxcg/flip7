@@ -10,6 +10,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-31-computer-opponents-design.md`
 
+**Note on the sample code:** the snippets below are a drafting aid, not verified
+source. Compile every one before trusting it.
+
 ## Global Constraints
 
 - Conventional Commits on every commit (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`).
@@ -23,7 +26,7 @@
 
 ## Prerequisites
 
-1. **PR #38 must merge first.** `main` does not yet contain `GameEvent.actionDiscardedWithoutTarget`, the `Flip7Session` target, or `GameTableView`. Branch phase 1 from `main` only after #38 lands.
+1. **PR #38 is merged** as `c1c5762`, so `main` already contains `GameEvent.actionDiscardedWithoutTarget`, the `Flip7Session` target, and `GameTableView`. Branch both phases from current `main`.
 2. **Issue #39 is executed from its own checklist**, not from this plan. It is documentation only and has no test cycle. Its branch `issue-39` already carries commit `0a940e6` with the spec and the newly tracked design language.
 
 ## Deviation from the spec
@@ -57,7 +60,7 @@ private func seat(_ n: Int) -> PlayerID { PlayerID(rawValue: n) }
 /// Builds a state where `seat(0)` is on turn holding `held`, and the draw pile
 /// contains exactly `pile`.
 private func turnState(held: [NumberValue], pile: [NumberValue]) throws -> GameState {
-  var engine = try GameEngine(
+  let engine = try GameEngine(
     playerNames: ["A", "B", "C"],
     deck: Deck(drawPile: pile.enumerated().map {
       GameCard(id: CardID(rawValue: 900 + $0.offset), kind: .number($0.element))
@@ -232,7 +235,7 @@ private func actionState(
   targets: [PlayerID],
   configure: (inout GameState) -> Void = { _ in }
 ) throws -> GameState {
-  var engine = try GameEngine(playerNames: ["A", "B", "C"], deck: .canonical)
+  let engine = try GameEngine(playerNames: ["A", "B", "C"], deck: .canonical)
   var state = engine.state
   configure(&state)
   state.phase = .awaitingAction(
@@ -524,7 +527,7 @@ func fairnessIgnoresDrawOrder() throws {
   }
 
   func command(topCard first: GameCard, then second: GameCard) throws -> GameCommand? {
-    var engine = try GameEngine(
+    let engine = try GameEngine(
       playerNames: ["A", "B", "C"],
       deck: Deck(drawPile: [first, second] + filler)
     )
@@ -780,7 +783,7 @@ func resetCancelsOpponentTurn() throws {
   #expect(session.start(with: .canonical))
   session.resetGame()
   #expect(session.state == nil)
-  #expect(session.inputVersion >= 0)
+  #expect(session.opponentCommandIfNeeded() == nil)
 }
 ```
 
@@ -811,12 +814,13 @@ git commit -m "test: cover opponent turn cancellation on reset"
     let version = inputVersion
     opponentTask?.cancel()
     opponentTask = Task { @MainActor [weak self] in
-      let low = turnDelayRange.lowerBound
-      let high = turnDelayRange.upperBound
+      guard let self else { return }
+      let low = self.turnDelayRange.lowerBound
+      let high = self.turnDelayRange.upperBound
       // Duration supports * by Double, so no seconds accessor is needed.
       let delay = low + (high - low) * Double.random(in: 0...1)
       try? await Task.sleep(for: delay)
-      guard !Task.isCancelled, let self, self.inputVersion == version else {
+      guard !Task.isCancelled, self.inputVersion == version else {
         return
       }
       self.playOpponentTurnIfNeeded()
