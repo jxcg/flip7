@@ -178,7 +178,15 @@ func secondChanceWithoutEligibleTargetIsDiscarded() throws {
   #expect(engine.state.players[1].secondChance == originalSecondChance)
   #expect(engine.state.deck.discardedCount == 1)
   #expect(engine.state.phase == .awaitingTurn(player(1)))
-  #expect(events.count == 2)
+  #expect(
+    events.contains {
+      if case .cardDiscarded(let card) = $0 {
+        card.kind == .action(.secondChance)
+      } else {
+        false
+      }
+    }
+  )
 }
 
 @Test("Second Chance belongs to its assigned target")
