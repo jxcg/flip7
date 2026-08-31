@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+  @Environment(\.scenePhase) private var scenePhase
   @State private var session = GameSession()
   @State private var isShowingSession = false
 
@@ -12,12 +13,18 @@ struct ContentView: View {
         }
       }
       .navigationDestination(isPresented: $isShowingSession) {
-        PlayerHandoffView(session: session)
+        GameTableView(session: session)
+          .navigationTitle(session.needsHandoff ? "Pass the Device" : "Game")
       }
       .onChange(of: isShowingSession) { _, isShowing in
         if !isShowing {
           session.resetGame()
         }
+      }
+    }
+    .onChange(of: scenePhase) { _, phase in
+      if phase != .active {
+        session.conceal()
       }
     }
   }
@@ -81,48 +88,6 @@ private struct NewGameView: View {
     .onChange(of: session.setupError) { _, error in
       isSetupErrorFocused = error != nil
     }
-  }
-}
-
-private struct PlayerHandoffView: View {
-  let session: GameSession
-
-  var body: some View {
-    ScrollView {
-      Group {
-        if let playerName = session.actingPlayerName {
-          if session.isActingPlayerRevealed {
-            VStack(spacing: 16) {
-              Text("\(playerName)'s turn")
-                .font(.title)
-              Text("The game session is ready.")
-            }
-          } else {
-            VStack(spacing: 16) {
-              Text("Pass the device to \(playerName)")
-                .font(.title)
-                .multilineTextAlignment(.center)
-
-              Text("Continue only when nobody else can see the screen.")
-                .multilineTextAlignment(.center)
-
-              Button("I'm \(playerName)") {
-                session.revealForCurrentPlayer()
-              }
-              .buttonStyle(.borderedProminent)
-              .frame(minHeight: 44)
-            }
-          }
-        } else {
-          Text("The game couldn't identify the next player.")
-        }
-      }
-      .frame(maxWidth: .infinity)
-      .padding()
-    }
-    .navigationTitle(
-      session.isActingPlayerRevealed ? "Game" : "Pass the Device"
-    )
   }
 }
 
