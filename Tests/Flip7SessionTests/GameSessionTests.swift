@@ -104,3 +104,23 @@ func defaultNameStartsCleanly() throws {
   let names = try #require(session.state).players.map(\.name)
   #expect(Set(names.map { $0.lowercased() }).count == names.count)
 }
+
+@MainActor
+@Test("The paced driver plays a computer turn, and reset cancels it")
+func pacedDriverRunsAndCancels() async throws {
+  let session = GameSession()
+  // Both bounds zero keeps the suite fast. The randomness never needs
+  // reproducing, only switching off.
+  session.turnDelayRange = .zero ... .zero
+  session.opponentCount = 2
+  #expect(session.start(with: .canonical))
+  try #require(session.actingPlayerID != session.humanPlayerID)
+
+  let versionBefore = session.inputVersion
+  await session.opponentTask?.value
+  #expect(session.inputVersion > versionBefore)
+
+  session.resetGame()
+  #expect(session.opponentTask == nil)
+  #expect(session.state == nil)
+}
