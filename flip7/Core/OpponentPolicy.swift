@@ -18,6 +18,18 @@ public func opponentCommand<R: RandomNumberGenerator>(
   switch state.phase {
   case .awaitingTurn(let playerID) where playerID == seat:
     return shouldHit(player, remaining: state.deck.drawPile) ? .hit(seat) : .stay(seat)
+  case .awaitingAction(let decision) where decision.sourcePlayerID == seat:
+    guard
+      let target = actionTarget(
+        for: decision,
+        in: state,
+        seat: seat,
+        using: &generator
+      )
+    else {
+      return nil
+    }
+    return .chooseActionTarget(cardID: decision.card.id, targetPlayerID: target)
   default:
     return nil
   }
@@ -76,4 +88,75 @@ private func averageNumberValue(
     return 0
   }
   return Double(values.reduce(0, +)) / Double(values.count)
+}
+
+private func uniqueNumberCount(_ player: PlayerState) -> Int {
+  Set(player.roundCards.numberValues).count
+}
+
+/// Picks a target on merit across every legal target, with no special case for
+/// any seat. That is what spreads incoming actions across the table instead of
+/// converging them on whoever happens to lead.
+private func actionTarget<R: RandomNumberGenerator>(
+  for decision: PendingActionDecision,
+  in state: GameState,
+  seat: PlayerID,
+  using generator: inout R
+) -> PlayerID? {
+  let candidates = decision.legalTargetIDs.compactMap { id in
+    state.players.first { $0.id == id }
+  }
+  guard !candidates.isEmpty else {
+    return nil
+  }
+
+  switch decision.card.kind {
+  case .action(.freeze):
+    // Freeze sets the target to .frozen, which ScoreBreakdown scores normally,
+    // so it banks their round score. The value is in denying future growth,
+    // above all a Flip 7 run, never in punishing a current total.
+    let mostAdvanced = candidates.map(uniqueNumberCount).max() ?? 0
+    let chasers = candidates.filter { uniqueNumberCount($0) == mostAdvanced }
+    // Among equally advanced chases, freeze whoever we gift the least.
+    let smallestGift = chasers.map(\.roundScore.total).min() ?? 0
+    let tied = chasers.filter { $0.roundScore.total == smallestGift }
+    return tied.randomElement(using: &generator)?.id
+
+  case .action(.flipThree):
+    // Three forced draws bust whoever already holds the most unique numbers.
+    // A held Second Chance absorbs one of those draws.
+    return bestTarget(among: candidates, using: &generator) { player in
+      player.secondChance == nil
+        ? uniqueNumberCount(player)
+        : uniqueNumberCount(player) - 1
+    }
+
+  case .action(.secondChance):
+    // Keeping it is always best. When self-targeting is illegal the card must
+    // still go somewhere, so give it to the seat it protects least.
+    if candidates.contains(where: { $0.id == seat }) {
+      return seat
+    }
+    return bestTarget(among: candidates, using: &generator) { player in
+      -uniqueNumberCount(player)
+    }
+
+  case .number, .scoreModifier:
+    return candidates.randomElement(using: &generator)?.id
+  }
+}
+
+/// Returns the highest-ranked candidate, breaking ties with the generator so
+/// equally good targets are not always the same player. `rank` returns `Int`
+/// rather than a tuple because Swift tuples do not conform to `Comparable`.
+private func bestTarget<R: RandomNumberGenerator>(
+  among candidates: [PlayerState],
+  using generator: inout R,
+  rank: (PlayerState) -> Int
+) -> PlayerID? {
+  guard let best = candidates.map(rank).max() else {
+    return nil
+  }
+  let tied = candidates.filter { rank($0) == best }
+  return tied.randomElement(using: &generator)?.id
 }
